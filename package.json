@@ -2,6 +2,7 @@
       "name": "SI Project Management Dashboard",
       "version": "0.1.0",
       "private": true,
+      "homepage": "https://aiuserthree.github.io/Si_Project_Manegement_v2.0",
       "dependencies": {
             "@radix-ui/react-accordion": "^1.2.3",
             "@radix-ui/react-alert-dialog": "^1.1.6",
