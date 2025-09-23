@@ -1,5 +1,9 @@
 # SI Project Management Dashboard v2.0
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/si-project-dashboard/deploy-status)](https://app.netlify.com/sites/si-project-dashboard/deploys)
+
+**🌐 라이브 데모**: [https://si-project-dashboard.netlify.app](https://si-project-dashboard.netlify.app)
+
 SI 프로젝트 관리를 위한 종합 대시보드 시스템입니다. 프로젝트 기획부터 개발, 배포까지의 전체 프로세스를 체계적으로 관리할 수 있습니다.
 
 ## 🚀 주요 기능
@@ -116,6 +120,9 @@ src/
 - **Caption**: 12px, Regular
 
 ## 🚀 배포
+
+### 🌐 라이브 데모
+**넷리파이 배포**: [https://si-project-dashboard.netlify.app](https://si-project-dashboard.netlify.app)
 
 ### Vercel 배포
 ```bash
