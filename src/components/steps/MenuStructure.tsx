@@ -192,7 +192,7 @@ export function MenuStructure() {
       }
       setMenuData(addToParent(menuData))
     } else {
-      // 최상위 메뉴로 추가
+      // 최상위 메뉴로 추가 - 맨 아래에 추가
       setMenuData([...menuData, newNode])
     }
     setSelectedNode(newNode)
@@ -374,7 +374,11 @@ export function MenuStructure() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>메뉴 구조</CardTitle>
-                <Button size="sm" onClick={addNewNode}>
+                <Button 
+                  size="sm" 
+                  onClick={() => addNewNode()}
+                  title="최상위 메뉴 추가"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   추가
                 </Button>

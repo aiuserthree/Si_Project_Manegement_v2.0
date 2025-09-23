@@ -1,8 +1,15 @@
 import { useState, useCallback } from 'react'
-import { Upload, File, X, FileText, Image, FileSpreadsheet, FileImage } from 'lucide-react'
+import { Upload, File, X, FileText, Image, FileSpreadsheet, FileImage, Brain, Eye, Download, RefreshCw, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Progress } from '../ui/progress'
+import { Badge } from '../ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion'
+import { Alert, AlertDescription } from '../ui/alert'
+import { AIService, FileAnalysisRequest, FileAnalysisResult } from '../../services/aiService'
+import { FileParser } from '../../utils/fileParser'
+import { saveAs } from 'file-saver'
 
 interface FileItem {
   id: string
@@ -10,12 +17,22 @@ interface FileItem {
   size: number
   type: string
   progress: number
-  status: 'uploading' | 'completed' | 'error'
+  status: 'uploading' | 'completed' | 'analyzing' | 'analyzed' | 'error'
+  analysis?: FileAnalysisResult
+  parsedContent?: {
+    text: string
+    metadata?: any
+  }
+  error?: string
 }
 
 export function FileUpload() {
   const [files, setFiles] = useState<FileItem[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [analysisComplete, setAnalysisComplete] = useState(false)
+  const [projectSummary, setProjectSummary] = useState<string>('')
+  const [error, setError] = useState<string>('')
 
   const getFileIcon = (type: string) => {
     if (type.includes('sheet') || type.includes('excel')) {
@@ -56,8 +73,19 @@ export function FileUpload() {
     }
   }
 
-  const processFiles = (fileList: File[]) => {
-    fileList.forEach(file => {
+  const processFiles = async (fileList: File[]) => {
+    for (const file of fileList) {
+      // 파일 검증
+      if (!FileParser.isSupportedFileType(file)) {
+        setError(`지원하지 않는 파일 형식입니다: ${file.name}`)
+        continue
+      }
+
+      if (FileParser.isFileTooLarge(file)) {
+        setError(`파일이 너무 큽니다: ${file.name} (최대 100MB)`)
+        continue
+      }
+
       const fileItem: FileItem = {
         id: Math.random().toString(36).substr(2, 9),
         name: file.name,
@@ -69,49 +97,159 @@ export function FileUpload() {
 
       setFiles(prev => [...prev, fileItem])
 
-      // Simulate upload progress
-      const uploadProgress = setInterval(() => {
-        setFiles(prev => prev.map(f => {
-          if (f.id === fileItem.id) {
-            const newProgress = f.progress + Math.random() * 30
-            if (newProgress >= 100) {
-              clearInterval(uploadProgress)
-              return { ...f, progress: 100, status: 'completed' }
-            }
-            return { ...f, progress: newProgress }
-          }
-          return f
-        }))
-      }, 200)
-    })
+      try {
+        // 파일 파싱
+        setFiles(prev => prev.map(f => 
+          f.id === fileItem.id ? { ...f, status: 'uploading', progress: 50 } : f
+        ))
+
+        const parsedContent = await FileParser.parseFile(file)
+        
+        setFiles(prev => prev.map(f => 
+          f.id === fileItem.id ? { 
+            ...f, 
+            status: 'completed', 
+            progress: 100,
+            parsedContent 
+          } : f
+        ))
+      } catch (error) {
+        console.error(`파일 처리 오류 (${file.name}):`, error)
+        setFiles(prev => prev.map(f => 
+          f.id === fileItem.id ? { 
+            ...f, 
+            status: 'error', 
+            error: error instanceof Error ? error.message : '파일 처리 중 오류가 발생했습니다.'
+          } : f
+        ))
+      }
+    }
   }
 
   const removeFile = (id: string) => {
     setFiles(prev => prev.filter(file => file.id !== id))
   }
 
-  const startAnalysis = () => {
-    const completedFiles = files.filter(f => f.status === 'completed')
+  const startAnalysis = async () => {
+    const completedFiles = files.filter(f => f.status === 'completed' && f.parsedContent)
     if (completedFiles.length === 0) {
-      alert('업로드된 파일이 없습니다.')
+      setError('분석할 수 있는 파일이 없습니다.')
       return
     }
     
-    // 실제 파일 분석 로직 구현
-    console.log('Starting file analysis...', completedFiles)
+    setIsAnalyzing(true)
+    setError('')
     
-    // 분석 진행 상태 표시
-    setFiles(prev => prev.map(f => ({ ...f, status: 'analyzing' as any })))
+    try {
+      // 분석 진행 상태 표시
+      setFiles(prev => prev.map(f => 
+        f.status === 'completed' ? { ...f, status: 'analyzing' } : f
+      ))
+      
+      // AI 분석 요청 준비
+      const analysisRequests: FileAnalysisRequest[] = completedFiles.map(file => ({
+        fileName: file.name,
+        fileType: file.type,
+        extractedText: file.parsedContent!.text,
+        fileSize: file.size
+      }))
+      
+      // AI 분석 실행
+      const analysisResults = await AIService.analyzeMultipleFiles(analysisRequests)
+      
+      // 분석 결과 적용
+      setFiles(prev => prev.map(f => {
+        if (f.status === 'analyzing') {
+          const analysisIndex = completedFiles.findIndex(cf => cf.id === f.id)
+          return {
+            ...f,
+            status: 'analyzed',
+            analysis: analysisResults[analysisIndex]
+          }
+        }
+        return f
+      }))
+      
+      // 프로젝트 전체 요약 생성
+      const summary = await AIService.generateProjectSummary(analysisResults)
+      setProjectSummary(summary)
+      
+      setIsAnalyzing(false)
+      setAnalysisComplete(true)
+    } catch (error) {
+      console.error('AI 분석 오류:', error)
+      setError('AI 분석 중 오류가 발생했습니다. API 키를 확인해주세요.')
+      
+      // 오류 발생 시 기본 분석으로 폴백
+      setFiles(prev => prev.map(f => {
+        if (f.status === 'analyzing') {
+          return {
+            ...f,
+            status: 'analyzed',
+            analysis: generateFallbackAnalysis(f.name, f.type)
+          }
+        }
+        return f
+      }))
+      
+      setIsAnalyzing(false)
+      setAnalysisComplete(true)
+    }
+  }
+
+  const generateFallbackAnalysis = (fileName: string, fileType: string): FileAnalysisResult => {
+    return {
+      summary: "AI 분석을 사용할 수 없어 기본 분석을 수행했습니다. API 키를 설정하시면 더 정확한 분석을 받을 수 있습니다.",
+      keyPoints: [
+        "기본 프로젝트 요구사항",
+        "일반적인 기능 명세",
+        "표준 보안 요구사항"
+      ],
+      documentType: FileParser.getDocumentCategory(fileType, fileName),
+      confidence: 70,
+      suggestedQuestions: [
+        "프로젝트의 주요 목표는 무엇인가요?",
+        "예상 사용자 규모는 어느 정도인가요?",
+        "특별한 기술적 제약사항이 있나요?"
+      ],
+      relatedRequirements: ["REQ-001", "REQ-002"],
+      businessContext: "프로젝트의 비즈니스 목표와 맥락을 파악하기 위해 추가 정보가 필요합니다.",
+      technicalRequirements: ["기본적인 웹 애플리케이션 구조", "데이터베이스 연동"],
+      userStories: ["사용자가 시스템에 접근할 수 있어야 한다", "관리자가 데이터를 관리할 수 있어야 한다"]
+    }
+  }
+
+  const downloadAnalysisResults = () => {
+    const analyzedFiles = files.filter(f => f.status === 'analyzed' && f.analysis)
     
-    // 시뮬레이션된 분석 과정
-    setTimeout(() => {
-      setFiles(prev => prev.map(f => ({ ...f, status: 'analyzed' as any })))
-      alert('파일 분석이 완료되었습니다!')
-    }, 3000)
+    const exportData = {
+      projectSummary,
+      files: analyzedFiles.map(file => ({
+        fileName: file.name,
+        fileType: file.type,
+        analysis: file.analysis,
+        metadata: file.parsedContent?.metadata
+      })),
+      exportDate: new Date().toISOString(),
+      totalFiles: analyzedFiles.length
+    }
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+      type: 'application/json' 
+    })
+    saveAs(blob, `file-analysis-${new Date().toISOString().split('T')[0]}.json`)
   }
 
   return (
     <div className="space-y-8">
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Main Upload Card */}
       <Card>
         <CardHeader>
@@ -229,18 +367,243 @@ export function FileUpload() {
           )}
 
           {/* Action Button */}
-          {files.filter(f => f.status === 'completed').length > 0 && (
+          {files.filter(f => f.status === 'completed').length > 0 && !analysisComplete && (
             <div className="flex justify-end">
               <Button 
                 onClick={startAnalysis}
+                disabled={isAnalyzing}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                파일 분석 시작
+                {isAnalyzing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    분석 중...
+                  </>
+                ) : (
+                  <>
+                    <Brain className="w-4 h-4 mr-2" />
+                    파일 분석 시작
+                  </>
+                )}
               </Button>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Analysis Results */}
+      {analysisComplete && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-2xl flex items-center">
+                <Brain className="w-6 h-6 mr-2 text-blue-600" />
+                파일 분석 결과
+              </CardTitle>
+              <div className="flex space-x-2">
+                <Button variant="outline" size="sm" onClick={downloadAnalysisResults}>
+                  <Download className="w-4 h-4 mr-2" />
+                  분석 결과 다운로드
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setAnalysisComplete(false)
+                    setFiles(prev => prev.map(f => ({ ...f, status: 'completed', analysis: undefined })))
+                  }}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  다시 분석
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Project Summary */}
+            {projectSummary && (
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="text-lg font-semibold text-blue-900 mb-2">프로젝트 전체 요약</h3>
+                <p className="text-blue-800">{projectSummary}</p>
+              </div>
+            )}
+
+            <Tabs defaultValue="summary" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="summary">요약</TabsTrigger>
+                <TabsTrigger value="details">상세 분석</TabsTrigger>
+                <TabsTrigger value="questions">추천 질문</TabsTrigger>
+                <TabsTrigger value="requirements">연관 요구사항</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="summary" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {files.filter(f => f.status === 'analyzed' && f.analysis).map((file) => (
+                    <Card key={file.id} className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          {getFileIcon(file.type)}
+                          <div>
+                            <h4 className="font-medium">{file.name}</h4>
+                            <Badge variant="secondary" className="text-xs">
+                              {file.analysis?.documentType}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500">신뢰도</div>
+                          <div className="text-lg font-semibold text-blue-600">
+                            {file.analysis?.confidence}%
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-3">
+                        {file.analysis?.summary}
+                      </p>
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium text-gray-900">주요 포인트:</h5>
+                        <div className="flex flex-wrap gap-1">
+                          {file.analysis?.keyPoints.slice(0, 3).map((point, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {point}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="details" className="space-y-4">
+                <Accordion type="single" collapsible className="w-full">
+                  {files.filter(f => f.status === 'analyzed' && f.analysis).map((file, index) => (
+                    <AccordionItem key={file.id} value={`item-${index}`}>
+                      <AccordionTrigger className="text-left">
+                        <div className="flex items-center space-x-3">
+                          {getFileIcon(file.type)}
+                          <span>{file.name}</span>
+                          <Badge variant="secondary" className="ml-2">
+                            {file.analysis?.documentType}
+                          </Badge>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-4">
+                        <div>
+                          <h5 className="font-medium mb-2">문서 요약</h5>
+                          <p className="text-sm text-gray-700">{file.analysis?.summary}</p>
+                        </div>
+                        <div>
+                          <h5 className="font-medium mb-2">핵심 포인트</h5>
+                          <ul className="space-y-1">
+                            {file.analysis?.keyPoints.map((point, idx) => (
+                              <li key={idx} className="text-sm text-gray-700 flex items-start">
+                                <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
+                                {point}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        {file.analysis?.businessContext && (
+                          <div>
+                            <h5 className="font-medium mb-2">비즈니스 맥락</h5>
+                            <p className="text-sm text-gray-700">{file.analysis.businessContext}</p>
+                          </div>
+                        )}
+                        
+                        {file.analysis?.technicalRequirements && file.analysis.technicalRequirements.length > 0 && (
+                          <div>
+                            <h5 className="font-medium mb-2">기술적 요구사항</h5>
+                            <ul className="space-y-1">
+                              {file.analysis.technicalRequirements.map((req, idx) => (
+                                <li key={idx} className="text-sm text-gray-700 flex items-start">
+                                  <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
+                                  {req}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {file.analysis?.userStories && file.analysis.userStories.length > 0 && (
+                          <div>
+                            <h5 className="font-medium mb-2">사용자 스토리</h5>
+                            <ul className="space-y-1">
+                              {file.analysis.userStories.map((story, idx) => (
+                                <li key={idx} className="text-sm text-gray-700 flex items-start">
+                                  <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
+                                  {story}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {file.parsedContent?.metadata && (
+                          <div>
+                            <h5 className="font-medium mb-2">파일 메타데이터</h5>
+                            <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-700">
+                              <pre className="whitespace-pre-wrap">
+                                {JSON.stringify(file.parsedContent.metadata, null, 2)}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </TabsContent>
+              
+              <TabsContent value="questions" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {files.filter(f => f.status === 'analyzed' && f.analysis).map((file) => (
+                    <Card key={file.id} className="p-4">
+                      <div className="flex items-center space-x-3 mb-3">
+                        {getFileIcon(file.type)}
+                        <h4 className="font-medium">{file.name}</h4>
+                      </div>
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium text-gray-900">추천 질문:</h5>
+                        <ul className="space-y-2">
+                          {file.analysis?.suggestedQuestions.map((question, index) => (
+                            <li key={index} className="text-sm text-gray-700 p-2 bg-blue-50 rounded-lg">
+                              {question}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="requirements" className="space-y-4">
+                <div className="space-y-4">
+                  {files.filter(f => f.status === 'analyzed' && f.analysis).map((file) => (
+                    <Card key={file.id} className="p-4">
+                      <div className="flex items-center space-x-3 mb-3">
+                        {getFileIcon(file.type)}
+                        <h4 className="font-medium">{file.name}</h4>
+                      </div>
+                      <div>
+                        <h5 className="text-sm font-medium text-gray-900 mb-2">연관 요구사항:</h5>
+                        <div className="flex flex-wrap gap-2">
+                          {file.analysis?.relatedRequirements.map((req, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {req}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
