@@ -62,8 +62,8 @@ export function Sidebar({ isOpen, onClose, isMobile, currentStep, onStepChange, 
       <div className="p-4 md:p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-3 rounded-xl shadow-lg">
-              <Shield className="w-8 h-8 text-white" />
+            <div className="bg-blue-600 p-2 rounded-lg shadow-lg">
+              <Shield className="w-5 h-5 text-white" />
             </div>
             <span className="font-semibold text-gray-900 text-sm md:text-base">
               SI Project Manager
