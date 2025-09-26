@@ -61,8 +61,8 @@ export function Sidebar({ isOpen, onClose, isMobile, currentStep, onStepChange, 
       <div className="p-4 md:p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center shadow-lg">
-              <Building2 className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-lg">
+              <Building2 className="w-5 h-5 text-white drop-shadow-sm" />
             </div>
             <span className="font-semibold text-gray-900 text-sm md:text-base">
               SI Project Manager
