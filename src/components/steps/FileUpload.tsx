@@ -1,10 +1,9 @@
 import { useState, useCallback } from 'react'
-import { Upload, File, X, FileText, Image, FileSpreadsheet, FileImage, Brain, Eye, Download, RefreshCw, AlertCircle } from 'lucide-react'
+import { Upload, File, X, FileText, Image, FileSpreadsheet, FileImage, Brain, Eye, Download, RefreshCw, AlertCircle, Save } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Progress } from '../ui/progress'
 import { Badge } from '../ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion'
 import { Alert, AlertDescription } from '../ui/alert'
 import { AIService, FileAnalysisRequest, FileAnalysisResult } from '../../services/aiService'
@@ -26,13 +25,19 @@ interface FileItem {
   error?: string
 }
 
-export function FileUpload() {
+interface FileUploadProps {
+  onSave?: () => void
+  onNextStep?: () => void
+}
+
+export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
   const [files, setFiles] = useState<FileItem[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisComplete, setAnalysisComplete] = useState(false)
   const [projectSummary, setProjectSummary] = useState<string>('')
   const [error, setError] = useState<string>('')
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
 
   const getFileIcon = (type: string) => {
     if (type.includes('sheet') || type.includes('excel')) {
@@ -240,6 +245,22 @@ export function FileUpload() {
     saveAs(blob, `file-analysis-${new Date().toISOString().split('T')[0]}.json`)
   }
 
+  const handleSaveClick = () => {
+    setShowSaveDialog(true)
+  }
+
+  const handleSaveConfirm = () => {
+    setShowSaveDialog(false)
+    // 저장 로직 실행
+    onSave?.()
+    // 다음 단계로 이동
+    onNextStep?.()
+  }
+
+  const handleSaveCancel = () => {
+    setShowSaveDialog(false)
+  }
+
   return (
     <div className="space-y-8">
       {/* Error Alert */}
@@ -401,6 +422,15 @@ export function FileUpload() {
                 파일 분석 결과
               </CardTitle>
               <div className="flex space-x-2">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={handleSaveClick}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  저장 및 다음 단계
+                </Button>
                 <Button variant="outline" size="sm" onClick={downloadAnalysisResults}>
                   <Download className="w-4 h-4 mr-2" />
                   분석 결과 다운로드
@@ -428,181 +458,80 @@ export function FileUpload() {
               </div>
             )}
 
-            <Tabs defaultValue="summary" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="summary">요약</TabsTrigger>
-                <TabsTrigger value="details">상세 분석</TabsTrigger>
-                <TabsTrigger value="questions">추천 질문</TabsTrigger>
-                <TabsTrigger value="requirements">연관 요구사항</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="summary" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {files.filter(f => f.status === 'analyzed' && f.analysis).map((file) => (
-                    <Card key={file.id} className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center space-x-3">
+            {/* Analysis Results */}
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {files.filter(f => f.status === 'analyzed' && f.analysis).map((file) => (
+                  <Card key={file.id} className="p-6 border border-gray-200 shadow-sm">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-start space-x-3 flex-1">
+                        <div className="flex-shrink-0 mt-1">
                           {getFileIcon(file.type)}
-                          <div>
-                            <h4 className="font-medium">{file.name}</h4>
-                            <Badge variant="secondary" className="text-xs">
-                              {file.analysis?.documentType}
-                            </Badge>
-                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-sm text-gray-500">신뢰도</div>
-                          <div className="text-lg font-semibold text-blue-600">
-                            {file.analysis?.confidence}%
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-700 mb-3">
-                        {file.analysis?.summary}
-                      </p>
-                      <div className="space-y-2">
-                        <h5 className="text-sm font-medium text-gray-900">주요 포인트:</h5>
-                        <div className="flex flex-wrap gap-1">
-                          {file.analysis?.keyPoints.slice(0, 3).map((point, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {point}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="details" className="space-y-4">
-                <Accordion type="single" collapsible className="w-full">
-                  {files.filter(f => f.status === 'analyzed' && f.analysis).map((file, index) => (
-                    <AccordionItem key={file.id} value={`item-${index}`}>
-                      <AccordionTrigger className="text-left">
-                        <div className="flex items-center space-x-3">
-                          {getFileIcon(file.type)}
-                          <span>{file.name}</span>
-                          <Badge variant="secondary" className="ml-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                            {file.name}
+                          </h4>
+                          <Badge variant="secondary" className="text-xs mb-2">
                             {file.analysis?.documentType}
                           </Badge>
                         </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="space-y-4">
-                        <div>
-                          <h5 className="font-medium mb-2">문서 요약</h5>
-                          <p className="text-sm text-gray-700">{file.analysis?.summary}</p>
-                        </div>
-                        <div>
-                          <h5 className="font-medium mb-2">핵심 포인트</h5>
-                          <ul className="space-y-1">
-                            {file.analysis?.keyPoints.map((point, idx) => (
-                              <li key={idx} className="text-sm text-gray-700 flex items-start">
-                                <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
-                                {point}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        {file.analysis?.businessContext && (
-                          <div>
-                            <h5 className="font-medium mb-2">비즈니스 맥락</h5>
-                            <p className="text-sm text-gray-700">{file.analysis.businessContext}</p>
-                          </div>
-                        )}
-                        
-                        {file.analysis?.technicalRequirements && file.analysis.technicalRequirements.length > 0 && (
-                          <div>
-                            <h5 className="font-medium mb-2">기술적 요구사항</h5>
-                            <ul className="space-y-1">
-                              {file.analysis.technicalRequirements.map((req, idx) => (
-                                <li key={idx} className="text-sm text-gray-700 flex items-start">
-                                  <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
-                                  {req}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {file.analysis?.userStories && file.analysis.userStories.length > 0 && (
-                          <div>
-                            <h5 className="font-medium mb-2">사용자 스토리</h5>
-                            <ul className="space-y-1">
-                              {file.analysis.userStories.map((story, idx) => (
-                                <li key={idx} className="text-sm text-gray-700 flex items-start">
-                                  <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
-                                  {story}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {file.parsedContent?.metadata && (
-                          <div>
-                            <h5 className="font-medium mb-2">파일 메타데이터</h5>
-                            <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-700">
-                              <pre className="whitespace-pre-wrap">
-                                {JSON.stringify(file.parsedContent.metadata, null, 2)}
-                              </pre>
-                            </div>
-                          </div>
-                        )}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </TabsContent>
-              
-              <TabsContent value="questions" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {files.filter(f => f.status === 'analyzed' && f.analysis).map((file) => (
-                    <Card key={file.id} className="p-4">
-                      <div className="flex items-center space-x-3 mb-3">
-                        {getFileIcon(file.type)}
-                        <h4 className="font-medium">{file.name}</h4>
                       </div>
-                      <div className="space-y-2">
-                        <h5 className="text-sm font-medium text-gray-900">추천 질문:</h5>
-                        <ul className="space-y-2">
-                          {file.analysis?.suggestedQuestions.map((question, index) => (
-                            <li key={index} className="text-sm text-gray-700 p-2 bg-blue-50 rounded-lg">
-                              {question}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="requirements" className="space-y-4">
-                <div className="space-y-4">
-                  {files.filter(f => f.status === 'analyzed' && f.analysis).map((file) => (
-                    <Card key={file.id} className="p-4">
-                      <div className="flex items-center space-x-3 mb-3">
-                        {getFileIcon(file.type)}
-                        <h4 className="font-medium">{file.name}</h4>
-                      </div>
-                      <div>
-                        <h5 className="text-sm font-medium text-gray-900 mb-2">연관 요구사항:</h5>
-                        <div className="flex flex-wrap gap-2">
-                          {file.analysis?.relatedRequirements.map((req, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {req}
-                            </Badge>
-                          ))}
+                      <div className="flex-shrink-0 text-right">
+                        <div className="text-xs text-gray-500 mb-1">신뢰도</div>
+                        <div className="text-xl font-bold text-blue-600">
+                          {file.analysis?.confidence}%
                         </div>
                       </div>
-                    </Card>
-                  ))}
-                </div>
-              </TabsContent>
-            </Tabs>
+                    </div>
+                    
+                    <p className="text-sm text-gray-700 mb-4 line-clamp-3">
+                      {file.analysis?.summary}
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <h5 className="text-sm font-medium text-gray-900">주요 포인트:</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {file.analysis?.keyPoints.slice(0, 3).map((point, index) => (
+                          <Badge key={index} variant="outline" className="text-xs px-2 py-1">
+                            {point}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Save Confirmation Dialog */}
+      {showSaveDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">저장 확인</h3>
+            <p className="text-gray-600 mb-6">
+              파일 분석 결과를 저장하고 다음 단계로 진행하시겠습니까?
+            </p>
+            <div className="flex justify-end gap-3 mt-16">
+              <Button 
+                variant="outline" 
+                onClick={handleSaveCancel}
+              >
+                취소
+              </Button>
+              <Button 
+                variant="default" 
+                onClick={handleSaveConfirm}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                저장 및 다음 단계
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

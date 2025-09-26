@@ -9,7 +9,7 @@ import { Label } from '../ui/label'
 import { Badge } from '../ui/badge'
 import { Progress } from '../ui/progress'
 import { Button } from '../ui/button'
-import { Lightbulb, CheckCircle } from 'lucide-react'
+import { Lightbulb, CheckCircle, Save } from 'lucide-react'
 
 interface Question {
   id: string
@@ -251,9 +251,15 @@ const questions: Question[] = [
   }
 ]
 
-export function Questionnaire() {
+interface QuestionnaireProps {
+  onSave?: () => void
+  onNextStep?: () => void
+}
+
+export function Questionnaire({ onSave, onNextStep }: QuestionnaireProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState('기획 부문 질의사항')
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
 
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers(prev => ({
@@ -291,6 +297,22 @@ export function Questionnaire() {
       case 'recommended': return 'border-l-green-500'
       default: return 'border-l-gray-300'
     }
+  }
+
+  const handleSaveClick = () => {
+    setShowSaveDialog(true)
+  }
+
+  const handleSaveConfirm = () => {
+    setShowSaveDialog(false)
+    // 저장 로직 실행
+    onSave?.()
+    // 다음 단계로 이동
+    onNextStep?.()
+  }
+
+  const handleSaveCancel = () => {
+    setShowSaveDialog(false)
   }
 
   const renderInput = (question: Question) => {
@@ -594,7 +616,45 @@ export function Questionnaire() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Save Button */}
+        <div className="flex justify-end mt-6">
+          <Button 
+            onClick={handleSaveClick}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            저장 및 다음 단계
+          </Button>
+        </div>
       </div>
+
+      {/* Save Confirmation Dialog */}
+      {showSaveDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">저장 확인</h3>
+            <p className="text-gray-600 mb-6">
+              질의서 응답을 저장하고 다음 단계로 진행하시겠습니까?
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={handleSaveCancel}
+              >
+                취소
+              </Button>
+              <Button 
+                variant="default" 
+                onClick={handleSaveConfirm}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                저장 및 다음 단계
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
