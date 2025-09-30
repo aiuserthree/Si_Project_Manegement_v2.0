@@ -1511,9 +1511,9 @@ export function DevelopmentGuide({ onSave, onNextStep }: DevelopmentGuideProps) 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Guide Sections */}
-        <div className="lg:col-span-1">
+        <div>
           <Card className="h-full">
             <CardHeader>
               <CardTitle>개발 가이드 목차</CardTitle>
@@ -1569,7 +1569,7 @@ export function DevelopmentGuide({ onSave, onNextStep }: DevelopmentGuideProps) 
         </div>
 
         {/* Guide Content */}
-        <div className="lg:col-span-1">
+        <div>
           <Card className="h-full">
             <CardHeader>
               <div>
@@ -1654,84 +1654,6 @@ export function DevelopmentGuide({ onSave, onNextStep }: DevelopmentGuideProps) 
           </Card>
         </div>
 
-        {/* IA Code 매핑 영역 */}
-        <div className="lg:col-span-1">
-          <Card className="h-full">
-        <CardHeader>
-          <CardTitle>IA Code 매핑</CardTitle>
-          <div className="flex items-center space-x-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="IA Code 검색..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex space-x-1">
-              <Button
-                variant={iaCodeFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setIACodeFilter('all')}
-              >
-                전체
-              </Button>
-              <Button
-                variant={iaCodeFilter === 'implemented' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setIACodeFilter('implemented')}
-              >
-                완료
-              </Button>
-              <Button
-                variant={iaCodeFilter === 'pending' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setIACodeFilter('pending')}
-              >
-                대기
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {filteredIACodes.map((item) => (
-            <Card key={item.id} className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Badge variant="outline" className="font-mono">
-                      {item.iaCode}
-                    </Badge>
-                    <Badge variant="secondary">
-                      {item.component}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-2">{item.description}</p>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-500">관련 요구사항:</span>
-                    {item.requirements.map((req) => (
-                      <Badge key={req} variant="outline" className="text-xs">
-                        {req}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={item.implemented}
-                    onCheckedChange={() => toggleImplementation(item.id)}
-                  />
-                  {item.implemented && (
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                  )}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </CardContent>
-          </Card>
-        </div>
 
       </div>
 
