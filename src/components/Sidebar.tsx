@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { 
+import {
   LayoutDashboard, 
   FileText, 
   FileEdit, 
@@ -16,7 +16,10 @@ import {
   BookOpen,
   Building2,
   Zap,
-  Shield
+  Shield,
+  UserPlus,
+  GanttChartSquare,
+  Sparkles
 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar'
@@ -32,9 +35,12 @@ const workflowSteps = [
   { id: 2, label: '질의서', icon: Target, description: 'AI 기반 질의서 생성' },
   { id: 3, label: '요구사항 정의', icon: FileEdit, description: '요구사항 도출 및 정의' },
   { id: 4, label: '메뉴 구조', icon: Layout, description: '시스템 메뉴 구조 설계' },
-  { id: 5, label: 'IA 디자인', icon: Network, description: '와이어프레임 및 IA 설계' },
-  { id: 6, label: '문서 편집', icon: FileText, description: '개발 문서 생성' },
-  { id: 7, label: '개발 가이드', icon: BookOpen, description: '최종 개발 가이드 생성' },
+  { id: 5, label: '인력 관리', icon: UserPlus, description: '인력 pool 및 프로젝트 투입 관리' },
+  { id: 6, label: 'WBS', icon: GanttChartSquare, description: '작업 분해 및 일정 관리' },
+  { id: 7, label: 'IA 디자인', icon: Network, description: '와이어프레임 및 IA 설계' },
+  { id: 8, label: '피그마 메이크 프롬프트', icon: Sparkles, description: '기능정의서 기반 프롬프트 자동생성' },
+  { id: 9, label: '문서 편집', icon: FileText, description: '개발 문서 생성' },
+  { id: 10, label: '개발 가이드', icon: BookOpen, description: '최종 개발 가이드 생성' },
 ]
 
 interface SidebarProps {

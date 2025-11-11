@@ -6,7 +6,10 @@ import { FileUpload } from './components/steps/FileUpload'
 import { Questionnaire } from './components/steps/Questionnaire'
 import { RequirementsDefinition } from './components/steps/RequirementsDefinition'
 import { MenuStructure } from './components/steps/MenuStructure'
+import { ResourceManagement } from './components/steps/ResourceManagement'
+import { WBSGantt } from './components/steps/WBSGantt'
 import { IADesign } from './components/steps/IADesign'
+import { FigmaMakePrompt } from './components/steps/FigmaMakePrompt'
 import { DocumentEditor } from './components/steps/DocumentEditor'
 import { DevelopmentGuide } from './components/steps/DevelopmentGuide'
 import { SettingsScreen } from './components/settings/SettingsScreen'
@@ -107,7 +110,7 @@ export default function App() {
   }
 
   const handleNextStep = () => {
-    if (currentStep < 7) {
+    if (currentStep < 10) {
       setCurrentStep(currentStep + 1)
     } else {
       setAppState('dashboard')
@@ -125,10 +128,16 @@ export default function App() {
       case 4:
         return <MenuStructure onSave={handleSave} onNextStep={handleNextStep} />
       case 5:
-        return <IADesign onSave={handleSave} onNextStep={handleNextStep} />
+        return <ResourceManagement onSave={handleSave} onNextStep={handleNextStep} />
       case 6:
-        return <DocumentEditor onSave={handleSave} onNextStep={handleNextStep} />
+        return <WBSGantt onSave={handleSave} onNextStep={handleNextStep} />
       case 7:
+        return <IADesign onSave={handleSave} onNextStep={handleNextStep} />
+      case 8:
+        return <FigmaMakePrompt onSave={handleSave} onNextStep={handleNextStep} />
+      case 9:
+        return <DocumentEditor onSave={handleSave} onNextStep={handleNextStep} />
+      case 10:
         return <DevelopmentGuide onSave={handleSave} onNextStep={handleNextStep} />
       default:
         return <FileUpload onSave={handleSave} onNextStep={handleNextStep} />
