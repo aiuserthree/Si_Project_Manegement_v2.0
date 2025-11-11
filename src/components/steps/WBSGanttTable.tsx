@@ -16,7 +16,7 @@ const workTypeColumns = {
   '디자인': ['담당자', '진행률', '시작일', '완료예정일', '검수 상태', '검수 완료일'],
   '퍼블리싱': ['담당자', '진행률', '시작일', '완료예정일', '검수 상태', '검수 완료일'],
   '개발': ['담당자', '진행률', '시작일', '완료예정일'],
-  '검수': ['담당자', '진행률', '시작일', '완료예정일']
+  '검수': ['담당자', '진행률', '시작일', '완료예정일', '검수 상태', '검수 완료일']
 }
 
 // 역할을 업무 타입으로 매핑
@@ -182,7 +182,9 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
       if (func.id !== funcId) return func
       
       const updatedTasks = func.tasks.map(task => {
-        const taskWorkType = roleToWorkType[task.role] || '기획'
+        // 검수 작업은 taskName에 '검수'가 포함되어 있으면 검수로 매핑
+        const isReviewTask = task.taskName.includes('검수')
+        const taskWorkType = isReviewTask ? '검수' : (roleToWorkType[task.role] || '기획')
         if (taskWorkType !== workType) return task
         
         return { ...task, [field]: value }
@@ -197,13 +199,14 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
   const weekColumns = generateWeekColumns()
 
   return (
-    <div className="overflow-x-auto border rounded-lg">
-      <table className="w-full border-collapse" style={{ fontSize: '13px' }}>
-        {/* 헤더 1: 업무 구분 */}
-        <thead>
-          <tr className="bg-gray-200">
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '80px' }}>구분</th>
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '120px' }}>1depth</th>
+    <div className="border rounded-lg" style={{ position: 'relative' }}>
+      <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+        <table className="w-full border-collapse" style={{ fontSize: '13px' }}>
+          {/* 헤더 1: 업무 구분 */}
+          <thead style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'white' }}>
+            <tr className="bg-gray-200">
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '80px', position: 'sticky', left: 0, zIndex: 21, backgroundColor: '#434343' }}>구분</th>
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '120px', position: 'sticky', left: '80px', zIndex: 21, backgroundColor: '#434343' }}>1depth</th>
             <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '120px' }}>2depth</th>
             <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '120px' }}>3depth</th>
             <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '80px' }}>페이지</th>
@@ -282,8 +285,8 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
             return (
               <tr key={func.id} className="hover:bg-gray-50" style={{ height: '220px' }}>
                 {/* 작업 분류 영역 */}
-                <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.division || ''}</td>
-                <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.depth1 || ''}</td>
+                <td className="border p-3 bg-white hover:bg-white" style={{ verticalAlign: 'top', position: 'sticky', left: 0, zIndex: 10 }}>{func.division || ''}</td>
+                <td className="border p-3 bg-white hover:bg-white" style={{ verticalAlign: 'top', position: 'sticky', left: '80px', zIndex: 10 }}>{func.depth1 || ''}</td>
                 <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.depth2 || ''}</td>
                 <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.depth3 || ''}</td>
                 <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.page || ''}</td>
@@ -727,6 +730,7 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
           })}
         </tbody>
       </table>
+      </div>
 
       {/* 작업 수정 다이얼로그 */}
       {editingTask && (
