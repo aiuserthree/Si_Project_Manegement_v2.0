@@ -39,9 +39,370 @@ export interface FileAnalysisResult {
 
 export class AIService {
   /**
+   * API 키가 유효한지 확인합니다
+   */
+  static isApiKeyValid(): boolean {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY
+    return !!apiKey && apiKey !== 'your-api-key-here' && apiKey.length > 20
+  }
+
+  /**
+   * 로컬 분석을 수행합니다 (API 키 없이)
+   */
+  private static performLocalAnalysis(request: FileAnalysisRequest): FileAnalysisResult {
+    const text = request.extractedText
+    const fileName = request.fileName.toLowerCase()
+    
+    // 키워드 추출
+    const keywords = this.extractKeywords(text, 15)
+    
+    // 섹션 파싱 (Markdown 헤더 또는 텍스트 구조 분석)
+    const sections = this.extractSections(text)
+    
+    // 요구사항 키워드 추출
+    const requirements = this.extractRequirements(text)
+    
+    // 문서 타입 추정
+    const documentType = this.inferDocumentType(fileName, text)
+    
+    // 주요 포인트 추출 (키워드 기반)
+    const keyPoints = this.extractKeyPoints(text, keywords)
+    
+    // 요구사항 요약 생성
+    const requirementsSummary = {
+      functionalRequirements: requirements.functional || [],
+      nonFunctionalRequirements: requirements.nonFunctional || [],
+      systemRequirements: requirements.system || [],
+      businessRequirements: requirements.business || []
+    }
+    
+    return {
+      summary: this.generateSummary(text, documentType, sections),
+      keyPoints: keyPoints.slice(0, 5),
+      documentType,
+      confidence: 65, // 로컬 분석이므로 신뢰도 낮게 설정
+      suggestedQuestions: this.generateSuggestedQuestions(text, sections),
+      relatedRequirements: this.generateRelatedRequirements(text),
+      extractedText: text,
+      businessContext: this.extractBusinessContext(text),
+      technicalRequirements: requirements.technical || [],
+      userStories: this.extractUserStories(text),
+      detailedAnalysis: this.generateDetailedAnalysis(text, sections),
+      sections: sections.map(s => s.title),
+      importantDetails: this.extractImportantDetails(text),
+      requirementsSummary
+    }
+  }
+
+  /**
+   * 섹션 추출 (Markdown 헤더 또는 텍스트 구조)
+   */
+  private static extractSections(text: string): Array<{ title: string; level: number }> {
+    const sections: Array<{ title: string; level: number }> = []
+    
+    // Markdown 헤더 추출 (# ## ### 등)
+    const markdownHeaderRegex = /^(#{1,6})\s+(.+)$/gm
+    let match
+    while ((match = markdownHeaderRegex.exec(text)) !== null) {
+      sections.push({
+        title: match[2].trim(),
+        level: match[1].length
+      })
+    }
+    
+    // Markdown 헤더가 없으면 숫자나 대문자로 시작하는 줄을 섹션으로 간주
+    if (sections.length === 0) {
+      const lines = text.split('\n')
+      lines.forEach((line, index) => {
+        const trimmed = line.trim()
+        // 숫자로 시작하거나 대문자로 시작하는 긴 줄을 섹션으로 간주
+        if (trimmed.length > 5 && trimmed.length < 100) {
+          if (/^\d+[\.\)]\s+/.test(trimmed) || /^[A-Z가-힣][A-Za-z가-힣\s]{4,}/.test(trimmed)) {
+            sections.push({
+              title: trimmed.replace(/^\d+[\.\)]\s+/, '').trim(),
+              level: 1
+            })
+          }
+        }
+      })
+    }
+    
+    return sections.slice(0, 10) // 최대 10개
+  }
+
+  /**
+   * 요구사항 추출
+   */
+  private static extractRequirements(text: string): {
+    functional?: string[]
+    nonFunctional?: string[]
+    system?: string[]
+    technical?: string[]
+    business?: string[]
+  } {
+    const lowerText = text.toLowerCase()
+    const requirements = {
+      functional: [] as string[],
+      nonFunctional: [] as string[],
+      system: [] as string[],
+      technical: [] as string[],
+      business: [] as string[]
+    }
+    
+    // 기능 요구사항 키워드
+    const functionalKeywords = ['기능', '함수', '작업', '업무', '프로세스', '처리', '생성', '조회', '수정', '삭제', '등록', '로그인', '인증']
+    // 비기능 요구사항 키워드
+    const nonFunctionalKeywords = ['성능', '보안', '안정성', '가용성', '확장성', '응답시간', '처리속도', '동시접속', '가동률']
+    // 시스템 요구사항 키워드
+    const systemKeywords = ['운영체제', '브라우저', '하드웨어', '소프트웨어', '서버', '클라이언트', '환경', '플랫폼', '버전']
+    // 기술 요구사항 키워드
+    const technicalKeywords = ['데이터베이스', 'api', '프레임워크', '언어', '라이브러리', '프로토콜', '인터페이스', '아키텍처']
+    // 비즈니스 요구사항 키워드
+    const businessKeywords = ['비즈니스', '목표', '규정', '법률', '준수', '정책', '규칙', '프로세스', '워크플로우']
+    
+    // 문장 단위로 분석
+    const sentences = text.split(/[\.\n]/).filter(s => s.trim().length > 10)
+    
+    sentences.forEach(sentence => {
+      const lowerSentence = sentence.toLowerCase()
+      
+      // 기능 요구사항
+      if (functionalKeywords.some(kw => lowerSentence.includes(kw))) {
+        const req = sentence.trim().substring(0, 100)
+        if (req && !requirements.functional.includes(req)) {
+          requirements.functional.push(req)
+        }
+      }
+      
+      // 비기능 요구사항
+      if (nonFunctionalKeywords.some(kw => lowerSentence.includes(kw))) {
+        const req = sentence.trim().substring(0, 100)
+        if (req && !requirements.nonFunctional.includes(req)) {
+          requirements.nonFunctional.push(req)
+        }
+      }
+      
+      // 시스템 요구사항
+      if (systemKeywords.some(kw => lowerSentence.includes(kw))) {
+        const req = sentence.trim().substring(0, 100)
+        if (req && !requirements.system.includes(req)) {
+          requirements.system.push(req)
+        }
+      }
+      
+      // 기술 요구사항
+      if (technicalKeywords.some(kw => lowerSentence.includes(kw))) {
+        const req = sentence.trim().substring(0, 100)
+        if (req && !requirements.technical.includes(req)) {
+          requirements.technical.push(req)
+        }
+      }
+      
+      // 비즈니스 요구사항
+      if (businessKeywords.some(kw => lowerSentence.includes(kw))) {
+        const req = sentence.trim().substring(0, 100)
+        if (req && !requirements.business.includes(req)) {
+          requirements.business.push(req)
+        }
+      }
+    })
+    
+    return {
+      functional: requirements.functional.slice(0, 5),
+      nonFunctional: requirements.nonFunctional.slice(0, 4),
+      system: requirements.system.slice(0, 4),
+      technical: requirements.technical.slice(0, 4),
+      business: requirements.business.slice(0, 3)
+    }
+  }
+
+  /**
+   * 키워드 추출 (기존 메서드 활용)
+   */
+  private static extractKeywords(text: string, maxKeywords: number = 10): string[] {
+    const words = text.toLowerCase()
+      .replace(/[^\w\s가-힣]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 2)
+    
+    const wordCount: { [key: string]: number } = {}
+    words.forEach(word => {
+      wordCount[word] = (wordCount[word] || 0) + 1
+    })
+    
+    return Object.entries(wordCount)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, maxKeywords)
+      .map(([word]) => word)
+  }
+
+  /**
+   * 문서 타입 추정
+   */
+  private static inferDocumentType(fileName: string, text: string): string {
+    const lowerText = text.toLowerCase()
+    const lowerFileName = fileName.toLowerCase()
+    
+    if (lowerFileName.includes('요구사항') || lowerText.includes('요구사항')) {
+      return '요구사항 정의서'
+    } else if (lowerFileName.includes('명세서') || lowerText.includes('명세서')) {
+      return '프로젝트 명세서'
+    } else if (lowerFileName.includes('설계') || lowerText.includes('설계')) {
+      return '기술 설계서'
+    } else if (lowerFileName.includes('기획') || lowerText.includes('기획')) {
+      return '프로젝트 기획서'
+    } else if (lowerFileName.includes('api') || lowerText.includes('api')) {
+      return 'API 명세서'
+    } else if (lowerFileName.includes('매뉴얼') || lowerText.includes('매뉴얼')) {
+      return '사용자 매뉴얼'
+    }
+    
+    return '프로젝트 문서'
+  }
+
+  /**
+   * 주요 포인트 추출
+   */
+  private static extractKeyPoints(text: string, keywords: string[]): string[] {
+    const sentences = text.split(/[\.\n]/).filter(s => s.trim().length > 20)
+    const keyPoints: string[] = []
+    
+    // 키워드가 포함된 문장을 주요 포인트로 선정
+    keywords.forEach(keyword => {
+      const matchingSentence = sentences.find(s => 
+        s.toLowerCase().includes(keyword) && s.trim().length < 150
+      )
+      if (matchingSentence && !keyPoints.includes(matchingSentence.trim())) {
+        keyPoints.push(matchingSentence.trim())
+      }
+    })
+    
+    return keyPoints.slice(0, 5)
+  }
+
+  /**
+   * 요약 생성
+   */
+  private static generateSummary(text: string, documentType: string, sections: Array<{ title: string; level: number }>): string {
+    const firstParagraph = text.split('\n\n').find(p => p.trim().length > 50) || text.substring(0, 200)
+    const mainSections = sections.slice(0, 3).map(s => s.title).join(', ')
+    
+    return `${documentType}입니다. 주요 섹션: ${mainSections || '없음'}. ${firstParagraph.substring(0, 150)}...`
+  }
+
+  /**
+   * 추천 질문 생성
+   */
+  private static generateSuggestedQuestions(text: string, sections: Array<{ title: string; level: number }>): string[] {
+    const questions = [
+      "프로젝트의 주요 목표는 무엇인가요?",
+      "예상 사용자 규모는 어느 정도인가요?",
+      "특별한 기술적 제약사항이 있나요?"
+    ]
+    
+    if (sections.length > 0) {
+      questions.push(`${sections[0].title}에 대한 상세 요구사항은 무엇인가요?`)
+    }
+    
+    return questions.slice(0, 4)
+  }
+
+  /**
+   * 관련 요구사항 ID 생성
+   */
+  private static generateRelatedRequirements(text: string): string[] {
+    const reqMatches = text.match(/REQ-\d+/gi) || []
+    const uniqueReqs = [...new Set(reqMatches)]
+    
+    // REQ-XXX 형식이 없으면 자동 생성
+    if (uniqueReqs.length === 0) {
+      return ['REQ-001', 'REQ-002', 'REQ-003']
+    }
+    
+    return uniqueReqs.slice(0, 4)
+  }
+
+  /**
+   * 비즈니스 맥락 추출
+   */
+  private static extractBusinessContext(text: string): string {
+    const contextKeywords = ['목표', '배경', '문제', '해결', '효과', '기대']
+    const sentences = text.split(/[\.\n]/)
+    
+    const contextSentence = sentences.find(s => 
+      contextKeywords.some(kw => s.toLowerCase().includes(kw)) && s.trim().length > 30
+    )
+    
+    return contextSentence?.trim().substring(0, 200) || 
+           "프로젝트의 비즈니스 목표와 맥락을 파악하기 위해 추가 정보가 필요합니다."
+  }
+
+  /**
+   * 사용자 스토리 추출
+   */
+  private static extractUserStories(text: string): string[] {
+    const stories: string[] = []
+    const sentences = text.split(/[\.\n]/)
+    
+    const userKeywords = ['사용자', '관리자', '고객', '직원', '시스템']
+    const actionKeywords = ['할 수 있어야', '수행', '처리', '관리', '조회', '생성']
+    
+    sentences.forEach(sentence => {
+      const lowerSentence = sentence.toLowerCase()
+      if (userKeywords.some(uk => lowerSentence.includes(uk)) && 
+          actionKeywords.some(ak => lowerSentence.includes(ak))) {
+        const story = sentence.trim().substring(0, 100)
+        if (story && !stories.includes(story)) {
+          stories.push(story)
+        }
+      }
+    })
+    
+    return stories.slice(0, 4)
+  }
+
+  /**
+   * 상세 분석 생성
+   */
+  private static generateDetailedAnalysis(text: string, sections: Array<{ title: string; level: number }>): string {
+    const sectionCount = sections.length
+    const wordCount = text.split(/\s+/).length
+    
+    return `문서는 ${sectionCount}개의 주요 섹션으로 구성되어 있으며, 총 ${wordCount}단어를 포함합니다. ${sections.slice(0, 2).map(s => s.title).join(', ')} 등의 내용을 다루고 있습니다.`
+  }
+
+  /**
+   * 중요한 세부사항 추출
+   */
+  private static extractImportantDetails(text: string): string[] {
+    const details: string[] = []
+    const sentences = text.split(/[\.\n]/)
+    
+    const importantKeywords = ['중요', '필수', '반드시', '주의', '금지', '제한', '필요']
+    
+    sentences.forEach(sentence => {
+      const lowerSentence = sentence.toLowerCase()
+      if (importantKeywords.some(kw => lowerSentence.includes(kw)) && sentence.trim().length > 20) {
+        const detail = sentence.trim().substring(0, 100)
+        if (detail && !details.includes(detail)) {
+          details.push(detail)
+        }
+      }
+    })
+    
+    return details.slice(0, 3)
+  }
+
+  /**
    * 파일 내용을 분석하여 구조화된 정보를 추출합니다
    */
   static async analyzeFile(request: FileAnalysisRequest): Promise<FileAnalysisResult> {
+    // API 키 확인
+    if (!this.isApiKeyValid()) {
+      console.warn('OpenAI API 키가 설정되지 않았습니다. 로컬 분석을 수행합니다.')
+      return this.performLocalAnalysis(request)
+    }
+
     try {
       const prompt = this.buildAnalysisPrompt(request)
       
@@ -67,10 +428,16 @@ export class AIService {
       }
 
       return this.parseAnalysisResponse(analysisText, request)
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI 분석 중 오류 발생:', error)
-      // 오류 발생 시 기본 분석 결과 반환
-      return this.getFallbackAnalysis(request)
+      
+      // API 키 관련 오류인지 확인
+      if (error?.status === 401 || error?.message?.includes('api key') || error?.message?.includes('authentication')) {
+        console.error('OpenAI API 키가 유효하지 않습니다. 로컬 분석으로 전환합니다.')
+      }
+      
+      // 오류 발생 시 로컬 분석 수행
+      return this.performLocalAnalysis(request)
     }
   }
 

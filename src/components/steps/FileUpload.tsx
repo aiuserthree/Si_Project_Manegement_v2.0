@@ -142,6 +142,11 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
       return
     }
     
+    // API 키 확인 (선택사항 - 없어도 로컬 분석 수행)
+    if (!AIService.isApiKeyValid()) {
+      console.info('OpenAI API 키가 없습니다. 로컬 분석(키워드 추출, 섹션 파싱)을 수행합니다.')
+    }
+    
     setIsAnalyzing(true)
     setError('')
     
@@ -203,8 +208,10 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
   }
 
   const generateFallbackAnalysis = (fileName: string, fileType: string): FileAnalysisResult => {
+    // 이 함수는 더 이상 사용되지 않음 (로컬 분석으로 대체됨)
+    // 하지만 혹시 모를 경우를 대비해 유지
     return {
-      summary: "AI 분석을 사용할 수 없어 기본 분석을 수행했습니다. API 키를 설정하시면 더 정확한 분석을 받을 수 있습니다.",
+      summary: "로컬 분석을 수행했습니다. (키워드 추출, 섹션 파싱, 요구사항 추출)",
       keyPoints: [
         "기본 프로젝트 요구사항",
         "일반적인 기능 명세",
