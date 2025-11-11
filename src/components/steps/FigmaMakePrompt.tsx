@@ -72,8 +72,8 @@ const mockMenuData: MenuNode[] = [
   }
 ]
 
-// 컴포넌트 코드 생성 함수
-const generateComponentCode = (menu: MenuNode, index: number): string => {
+// 화면 기본 컴포넌트 코드 생성 함수
+const generateScreenComponentCode = (menu: MenuNode, index: number): string => {
   // 메뉴 ID를 기반으로 컴포넌트 코드 생성
   const menuId = menu.id.replace(/-/g, '')
   const depthPath = [menu.depth1, menu.depth2, menu.depth3, menu.depth4, menu.depth5]
@@ -87,6 +87,187 @@ const generateComponentCode = (menu: MenuNode, index: number): string => {
     return `COMP-${depthPath}-${String(index + 1).padStart(3, '0')}`
   }
   return `COMP-${menuId}-${String(index + 1).padStart(3, '0')}`
+}
+
+// UI 요소 추출 함수 (기능 설명을 분석하여 필요한 UI 요소 추출)
+const extractUIElements = (func: Function): Array<{ type: string; name: string; description: string }> => {
+  const elements: Array<{ type: string; name: string; description: string }> = []
+  const description = func.description.toLowerCase()
+  const name = func.name.toLowerCase()
+  
+  // 입력 필드 관련 키워드
+  const inputKeywords = ['입력', '입력창', '입력필드', '텍스트', '아이디', 'id', '이메일', 'email', '비밀번호', 'password', 'pw', '이름', 'name', '전화번호', 'phone', '주소', 'address', '검색', 'search']
+  // 버튼 관련 키워드
+  const buttonKeywords = ['버튼', 'button', '로그인', 'login', '등록', 'register', '저장', 'save', '수정', 'edit', '삭제', 'delete', '확인', 'confirm', '취소', 'cancel', '제출', 'submit', '조회', 'search']
+  // 링크 관련 키워드
+  const linkKeywords = ['링크', 'link', '찾기', 'find', '아이디 찾기', '비밀번호 찾기', '회원가입', 'signup', '더보기', 'more']
+  // 선택 관련 키워드
+  const selectKeywords = ['선택', 'select', '드롭다운', 'dropdown', '라디오', 'radio', '체크박스', 'checkbox', '토글', 'toggle']
+  // 표/테이블 관련 키워드
+  const tableKeywords = ['목록', 'list', '테이블', 'table', '그리드', 'grid', '리스트', '리스트뷰']
+  // 이미지 관련 키워드
+  const imageKeywords = ['이미지', 'image', '사진', 'photo', '아이콘', 'icon', '로고', 'logo']
+  // 카드/컨테이너 관련 키워드
+  const cardKeywords = ['카드', 'card', '컨테이너', 'container', '박스', 'box', '패널', 'panel']
+  // 모달/다이얼로그 관련 키워드
+  const modalKeywords = ['모달', 'modal', '다이얼로그', 'dialog', '팝업', 'popup', '알림', 'alert']
+  
+  // 입력 필드 추출
+  inputKeywords.forEach(keyword => {
+    if (description.includes(keyword) || name.includes(keyword)) {
+      const elementName = keyword === 'id' || keyword === '아이디' ? '아이디' :
+                         keyword === 'password' || keyword === 'pw' || keyword === '비밀번호' ? '비밀번호' :
+                         keyword === 'email' || keyword === '이메일' ? '이메일' :
+                         keyword === 'phone' || keyword === '전화번호' ? '전화번호' :
+                         keyword === 'address' || keyword === '주소' ? '주소' :
+                         keyword === 'search' || keyword === '검색' ? '검색' :
+                         keyword === 'name' || keyword === '이름' ? '이름' : keyword
+      if (!elements.find(e => e.name === elementName && e.type === 'INPUT')) {
+        elements.push({
+          type: 'INPUT',
+          name: elementName,
+          description: `${elementName} 입력 필드`
+        })
+      }
+    }
+  })
+  
+  // 버튼 추출
+  buttonKeywords.forEach(keyword => {
+    if (description.includes(keyword) || name.includes(keyword)) {
+      const buttonName = keyword === 'login' || keyword === '로그인' ? '로그인' :
+                        keyword === 'register' || keyword === '등록' ? '등록' :
+                        keyword === 'save' || keyword === '저장' ? '저장' :
+                        keyword === 'edit' || keyword === '수정' ? '수정' :
+                        keyword === 'delete' || keyword === '삭제' ? '삭제' :
+                        keyword === 'confirm' || keyword === '확인' ? '확인' :
+                        keyword === 'cancel' || keyword === '취소' ? '취소' :
+                        keyword === 'submit' || keyword === '제출' ? '제출' :
+                        keyword === 'search' || keyword === '조회' ? '조회' : keyword
+      if (!elements.find(e => e.name === buttonName && e.type === 'BUTTON')) {
+        elements.push({
+          type: 'BUTTON',
+          name: buttonName,
+          description: `${buttonName} 버튼`
+        })
+      }
+    }
+  })
+  
+  // 링크 추출
+  linkKeywords.forEach(keyword => {
+    if (description.includes(keyword) || name.includes(keyword)) {
+      const linkName = keyword === 'find' || keyword === '찾기' ? '찾기' :
+                      keyword === 'signup' || keyword === '회원가입' ? '회원가입' :
+                      keyword === 'more' || keyword === '더보기' ? '더보기' : keyword
+      if (!elements.find(e => e.name === linkName && e.type === 'LINK')) {
+        elements.push({
+          type: 'LINK',
+          name: linkName,
+          description: `${linkName} 링크`
+        })
+      }
+    }
+  })
+  
+  // 선택 요소 추출
+  selectKeywords.forEach(keyword => {
+    if (description.includes(keyword)) {
+      const selectName = keyword === 'select' || keyword === '선택' ? '선택' :
+                         keyword === 'dropdown' || keyword === '드롭다운' ? '드롭다운' :
+                         keyword === 'radio' || keyword === '라디오' ? '라디오' :
+                         keyword === 'checkbox' || keyword === '체크박스' ? '체크박스' :
+                         keyword === 'toggle' || keyword === '토글' ? '토글' : keyword
+      if (!elements.find(e => e.name === selectName && e.type === 'SELECT')) {
+        elements.push({
+          type: 'SELECT',
+          name: selectName,
+          description: `${selectName} 선택 요소`
+        })
+      }
+    }
+  })
+  
+  // 표/테이블 추출
+  tableKeywords.forEach(keyword => {
+    if (description.includes(keyword) || name.includes(keyword)) {
+      if (!elements.find(e => e.name === '목록' && e.type === 'TABLE')) {
+        elements.push({
+          type: 'TABLE',
+          name: '목록',
+          description: '데이터 목록 테이블'
+        })
+      }
+    }
+  })
+  
+  // 이미지 추출
+  imageKeywords.forEach(keyword => {
+    if (description.includes(keyword)) {
+      if (!elements.find(e => e.name === '이미지' && e.type === 'IMAGE')) {
+        elements.push({
+          type: 'IMAGE',
+          name: '이미지',
+          description: '이미지 요소'
+        })
+      }
+    }
+  })
+  
+  // 카드/컨테이너 추출
+  cardKeywords.forEach(keyword => {
+    if (description.includes(keyword)) {
+      if (!elements.find(e => e.name === '카드' && e.type === 'CARD')) {
+        elements.push({
+          type: 'CARD',
+          name: '카드',
+          description: '카드 컨테이너'
+        })
+      }
+    }
+  })
+  
+  // 모달/다이얼로그 추출
+  modalKeywords.forEach(keyword => {
+    if (description.includes(keyword)) {
+      if (!elements.find(e => e.name === '모달' && e.type === 'MODAL')) {
+        elements.push({
+          type: 'MODAL',
+          name: '모달',
+          description: '모달 다이얼로그'
+        })
+      }
+    }
+  })
+  
+  // 기본 요소가 없으면 기본 입력과 버튼 추가
+  if (elements.length === 0) {
+    elements.push(
+      { type: 'INPUT', name: '입력', description: '입력 필드' },
+      { type: 'BUTTON', name: '확인', description: '확인 버튼' }
+    )
+  }
+  
+  return elements
+}
+
+// UI 요소별 컴포넌트 코드 생성 함수
+const generateElementComponentCode = (screenCode: string, elementType: string, elementName: string, index: number): string => {
+  const typePrefix = elementType === 'INPUT' ? 'INPUT' :
+                     elementType === 'BUTTON' ? 'BTN' :
+                     elementType === 'LINK' ? 'LINK' :
+                     elementType === 'SELECT' ? 'SELECT' :
+                     elementType === 'TABLE' ? 'TABLE' :
+                     elementType === 'IMAGE' ? 'IMG' :
+                     elementType === 'CARD' ? 'CARD' :
+                     elementType === 'MODAL' ? 'MODAL' : 'COMP'
+  
+  const nameCode = elementName
+    .replace(/\s+/g, '-')
+    .replace(/[^가-힣a-zA-Z0-9-]/g, '')
+    .toUpperCase()
+  
+  return `${screenCode}-${typePrefix}-${nameCode}-${String(index + 1).padStart(2, '0')}`
 }
 
 // 모든 메뉴 노드를 평탄화하는 함수
@@ -176,31 +357,42 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
       prompt += `## 프로젝트 개요\n`
       prompt += `다음 기능정의서를 기반으로 Figma 화면을 설계해주세요.\n\n`
       
-      // 메뉴 구조별 컴포넌트 코드 매핑
+      // 메뉴 구조별 화면 컴포넌트 코드 매핑
       const flattenedMenus = flattenMenuNodes(menuData)
       const menuComponentMap = new Map<string, string>()
       flattenedMenus.forEach((menu, idx) => {
-        const componentCode = generateComponentCode(menu, idx)
+        const componentCode = generateScreenComponentCode(menu, idx)
         const menuPath = [menu.depth1, menu.depth2, menu.depth3].filter(d => d).join(' > ')
         menuComponentMap.set(menuPath, componentCode)
       })
       
       targetFunctions.forEach((func, index) => {
         const menuPath = [func.depth1, func.depth2, func.depth3].filter(d => d).join(' > ')
-        const componentCode = menuComponentMap.get(menuPath) || generateComponentCode(
+        const screenCode = menuComponentMap.get(menuPath) || generateScreenComponentCode(
           { id: func.id, name: func.name, depth1: func.depth1 || '', depth2: func.depth2 || '', depth3: func.depth3 || '', depth4: '', depth5: '', screenName: func.page || '', accessLevel: 'login', hasAdmin: false },
           index
         )
         
+        // UI 요소 추출
+        const uiElements = extractUIElements(func)
+        
         prompt += `### ${index + 1}. ${func.name} (${func.functionId})\n`
         prompt += `- **구분**: ${func.division || 'N/A'}\n`
         prompt += `- **메뉴 구조**: ${menuPath || 'N/A'}\n`
-        prompt += `- **컴포넌트 코드**: ${componentCode}\n`
+        prompt += `- **화면 컴포넌트 코드**: ${screenCode}\n`
         prompt += `- **페이지**: ${func.page || 'N/A'}\n`
         prompt += `- **플랫폼**: ${func.platform || 'N/A'}\n`
         prompt += `- **설명**: ${func.description}\n`
         prompt += `- **우선순위**: ${func.priority}\n`
         prompt += `- **필요 역할**: ${func.requiredRoles.join(', ')}\n\n`
+        
+        // 각 UI 요소별 컴포넌트 코드 부여
+        prompt += `**UI 요소별 컴포넌트 코드**:\n`
+        uiElements.forEach((element, elemIdx) => {
+          const elementCode = generateElementComponentCode(screenCode, element.type, element.name, elemIdx)
+          prompt += `  - ${element.description}: \`${elementCode}\`\n`
+        })
+        prompt += `\n`
         
         if (func.tasks && func.tasks.length > 0) {
           prompt += `**작업 리스트**:\n`
@@ -212,22 +404,6 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
           })
           prompt += `\n`
         }
-      })
-      
-      // 메뉴 구조별 컴포넌트 코드 목록 추가
-      prompt += `## 메뉴 구조별 컴포넌트 코드 매핑\n\n`
-      flattenedMenus.forEach((menu, idx) => {
-        const componentCode = generateComponentCode(menu, idx)
-        const menuPath = [menu.depth1, menu.depth2, menu.depth3, menu.depth4, menu.depth5]
-          .filter(d => d)
-          .join(' > ')
-        prompt += `- **${menuPath || menu.name}** → 컴포넌트 코드: \`${componentCode}\`\n`
-        prompt += `  - 화면명: ${menu.screenName}\n`
-        prompt += `  - 접근 권한: ${menu.accessLevel === 'all' ? '전체' : '로그인'}\n`
-        if (menu.hasAdmin) {
-          prompt += `  - 관리자 기능 포함\n`
-        }
-        prompt += `\n`
       })
 
       prompt += `## 디자인 요구사항\n`
@@ -249,46 +425,43 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
       prompt = `# Figma Make 프롬프트 - 컴포넌트 설계\n\n`
       prompt += `## 컴포넌트 설계 요청\n\n`
       
-      // 메뉴 구조별 컴포넌트 코드 매핑
+      // 메뉴 구조별 화면 컴포넌트 코드 매핑
       const flattenedMenus = flattenMenuNodes(menuData)
       const menuComponentMap = new Map<string, string>()
       flattenedMenus.forEach((menu, idx) => {
-        const componentCode = generateComponentCode(menu, idx)
+        const componentCode = generateScreenComponentCode(menu, idx)
         const menuPath = [menu.depth1, menu.depth2, menu.depth3].filter(d => d).join(' > ')
         menuComponentMap.set(menuPath, componentCode)
       })
       
       targetFunctions.forEach((func, index) => {
         const menuPath = [func.depth1, func.depth2, func.depth3].filter(d => d).join(' > ')
-        const componentCode = menuComponentMap.get(menuPath) || generateComponentCode(
+        const screenCode = menuComponentMap.get(menuPath) || generateScreenComponentCode(
           { id: func.id, name: func.name, depth1: func.depth1 || '', depth2: func.depth2 || '', depth3: func.depth3 || '', depth4: '', depth5: '', screenName: func.page || '', accessLevel: 'login', hasAdmin: false },
           index
         )
         
+        // UI 요소 추출
+        const uiElements = extractUIElements(func)
+        
         prompt += `### ${index + 1}. ${func.name} 관련 컴포넌트\n`
         prompt += `**기능 ID**: ${func.functionId}\n`
         prompt += `**메뉴 구조**: ${menuPath || 'N/A'}\n`
-        prompt += `**컴포넌트 코드**: ${componentCode}\n`
+        prompt += `**화면 컴포넌트 코드**: ${screenCode}\n`
         prompt += `**설명**: ${func.description}\n\n`
         
-        prompt += `**필요한 컴포넌트**:\n`
-        prompt += `- 메인 컴포넌트: \`${componentCode}\` (${func.name} 화면의 메인 컴포넌트)\n`
-        if (func.requiredRoles.includes('디자이너')) {
-          prompt += `- 입력 폼 컴포넌트: \`${componentCode}-FORM\`\n`
-          prompt += `- 버튼 컴포넌트: \`${componentCode}-BUTTON\`\n`
-          prompt += `- 카드/컨테이너 컴포넌트: \`${componentCode}-CARD\`\n`
-        }
-        if (func.requiredRoles.includes('퍼블리셔')) {
-          prompt += `- 레이아웃 컴포넌트: \`${componentCode}-LAYOUT\`\n`
-          prompt += `- 네비게이션 컴포넌트: \`${componentCode}-NAV\`\n`
-        }
+        prompt += `**각 UI 요소별 컴포넌트 코드**:\n`
+        uiElements.forEach((element, elemIdx) => {
+          const elementCode = generateElementComponentCode(screenCode, element.type, element.name, elemIdx)
+          prompt += `- ${element.description}: \`${elementCode}\`\n`
+        })
         prompt += `\n`
       })
       
-      // 전체 메뉴 구조별 컴포넌트 코드 목록
-      prompt += `## 전체 메뉴 구조별 컴포넌트 코드 목록\n\n`
+      // 전체 메뉴 구조별 화면 컴포넌트 코드 목록
+      prompt += `## 전체 메뉴 구조별 화면 컴포넌트 코드 목록\n\n`
       flattenedMenus.forEach((menu, idx) => {
-        const componentCode = generateComponentCode(menu, idx)
+        const componentCode = generateScreenComponentCode(menu, idx)
         const menuPath = [menu.depth1, menu.depth2, menu.depth3, menu.depth4, menu.depth5]
           .filter(d => d)
           .join(' > ')
@@ -296,40 +469,55 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
       })
 
       prompt += `\n## 컴포넌트 설계 가이드\n`
-      prompt += `1. 각 메뉴별로 지정된 컴포넌트 코드를 사용하여 컴포넌트를 생성하세요.\n`
-      prompt += `2. 컴포넌트 이름은 반드시 위에 명시된 컴포넌트 코드를 사용하세요.\n`
+      prompt += `1. 각 UI 요소별로 위에 명시된 컴포넌트 코드를 반드시 사용하세요.\n`
+      prompt += `2. 각 컴포넌트의 Figma 인스턴스 이름에 해당 컴포넌트 코드를 정확히 포함하세요.\n`
       prompt += `3. 재사용 가능한 컴포넌트로 설계하세요.\n`
       prompt += `4. 컴포넌트 변형(Variants)을 활용하세요.\n`
       prompt += `5. Auto Layout을 적극 활용하세요.\n`
       prompt += `6. 디자인 토큰(색상, 타이포그래피, 간격)을 정의하세요.\n`
-      prompt += `7. 각 컴포넌트의 Figma 인스턴스 이름에 컴포넌트 코드를 포함하세요.\n`
+      prompt += `7. 예를 들어, 로그인 화면의 경우:\n`
+      prompt += `   - 아이디 입력창: \`COMP-LOGIN-001-INPUT-아이디-01\`\n`
+      prompt += `   - 비밀번호 입력창: \`COMP-LOGIN-001-INPUT-비밀번호-01\`\n`
+      prompt += `   - 로그인 버튼: \`COMP-LOGIN-001-BTN-로그인-01\`\n`
+      prompt += `   - 아이디 찾기 링크: \`COMP-LOGIN-001-LINK-찾기-01\`\n`
 
     } else if (promptType === 'flow') {
       // 플로우 단위 프롬프트 생성
       prompt = `# Figma Make 프롬프트 - 사용자 플로우 설계\n\n`
       prompt += `## 사용자 플로우 설계 요청\n\n`
       
-      // 메뉴 구조별 컴포넌트 코드 매핑
+      // 메뉴 구조별 화면 컴포넌트 코드 매핑
       const flattenedMenus = flattenMenuNodes(menuData)
       const menuComponentMap = new Map<string, string>()
       flattenedMenus.forEach((menu, idx) => {
-        const componentCode = generateComponentCode(menu, idx)
+        const componentCode = generateScreenComponentCode(menu, idx)
         const menuPath = [menu.depth1, menu.depth2, menu.depth3].filter(d => d).join(' > ')
         menuComponentMap.set(menuPath, componentCode)
       })
       
       targetFunctions.forEach((func, index) => {
         const menuPath = [func.depth1, func.depth2, func.depth3].filter(d => d).join(' > ')
-        const componentCode = menuComponentMap.get(menuPath) || generateComponentCode(
+        const screenCode = menuComponentMap.get(menuPath) || generateScreenComponentCode(
           { id: func.id, name: func.name, depth1: func.depth1 || '', depth2: func.depth2 || '', depth3: func.depth3 || '', depth4: '', depth5: '', screenName: func.page || '', accessLevel: 'login', hasAdmin: false },
           index
         )
         
+        // UI 요소 추출
+        const uiElements = extractUIElements(func)
+        
         prompt += `### ${index + 1}. ${func.name} 플로우\n`
         prompt += `**기능**: ${func.name}\n`
         prompt += `**경로**: ${menuPath || 'N/A'}\n`
-        prompt += `**컴포넌트 코드**: ${componentCode}\n`
+        prompt += `**화면 컴포넌트 코드**: ${screenCode}\n`
         prompt += `**설명**: ${func.description}\n\n`
+        
+        // 각 UI 요소별 컴포넌트 코드
+        prompt += `**화면 내 UI 요소별 컴포넌트 코드**:\n`
+        uiElements.forEach((element, elemIdx) => {
+          const elementCode = generateElementComponentCode(screenCode, element.type, element.name, elemIdx)
+          prompt += `  - ${element.description}: \`${elementCode}\`\n`
+        })
+        prompt += `\n`
         
         if (func.tasks && func.tasks.length > 0) {
           prompt += `**작업 단계**:\n`
@@ -340,11 +528,11 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
         }
       })
       
-      // 플로우에서 사용되는 컴포넌트 코드 참조
-      prompt += `## 플로우 내 컴포넌트 코드 참조\n\n`
-      prompt += `각 화면 전환 시 다음 컴포넌트 코드를 사용하세요:\n\n`
+      // 플로우에서 사용되는 화면 컴포넌트 코드 참조
+      prompt += `## 플로우 내 화면 컴포넌트 코드 참조\n\n`
+      prompt += `각 화면 전환 시 다음 화면 컴포넌트 코드를 사용하세요:\n\n`
       flattenedMenus.forEach((menu, idx) => {
-        const componentCode = generateComponentCode(menu, idx)
+        const componentCode = generateScreenComponentCode(menu, idx)
         const menuPath = [menu.depth1, menu.depth2, menu.depth3, menu.depth4, menu.depth5]
           .filter(d => d)
           .join(' > ')
