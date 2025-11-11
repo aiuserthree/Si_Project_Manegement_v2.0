@@ -29,7 +29,7 @@ export class FileParser {
         return await this.parsePDF(file)
       } else if (fileType.includes('image') || this.isImageFile(fileName)) {
         return await this.parseImage(file)
-      } else if (fileType.includes('text') || fileName.endsWith('.txt')) {
+      } else if (fileType.includes('text') || fileName.endsWith('.txt') || fileName.endsWith('.md')) {
         return await this.parseText(file)
       } else {
         throw new Error(`지원하지 않는 파일 형식입니다: ${fileType}`)
@@ -310,9 +310,13 @@ export class FileParser {
       'image/png',
       'image/gif',
       'image/webp',
-      'text/plain'
+      'text/plain',
+      'text/markdown' // .md
     ]
 
-    return supportedTypes.includes(file.type) || this.isImageFile(file.name)
+    const fileName = file.name.toLowerCase()
+    return supportedTypes.includes(file.type) || 
+           this.isImageFile(file.name) || 
+           fileName.endsWith('.md')
   }
 }

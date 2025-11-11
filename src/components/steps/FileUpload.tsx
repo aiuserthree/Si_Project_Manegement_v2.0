@@ -304,7 +304,7 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
             </h3>
             <p className="text-sm text-gray-500 text-center">
               지원 형식: Excel (.xlsx, .xls), Word (.docx, .doc), PPT (.pptx, .ppt), <br />
-              PDF, 이미지 (JPG, PNG, GIF), 텍스트 파일
+              PDF, 이미지 (JPG, PNG, GIF), 텍스트 파일 (.txt, .md)
             </p>
             <input
               id="file-input"
@@ -312,7 +312,7 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
               multiple
               className="hidden"
               onChange={handleFileSelect}
-              accept=".xlsx,.xls,.docx,.doc,.pptx,.ppt,.pdf,.jpg,.jpeg,.png,.gif,.txt"
+              accept=".xlsx,.xls,.docx,.doc,.pptx,.ppt,.pdf,.jpg,.jpeg,.png,.gif,.txt,.md"
             />
           </div>
 
@@ -460,48 +460,251 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
 
             {/* Analysis Results */}
             <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {files.filter(f => f.status === 'analyzed' && f.analysis).map((file) => (
-                  <Card key={file.id} className="p-6 border border-gray-200 shadow-sm">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-start space-x-3 flex-1">
-                        <div className="flex-shrink-0 mt-1">
-                          {getFileIcon(file.type)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                            {file.name}
-                          </h4>
-                          <Badge variant="secondary" className="text-xs mb-2">
-                            {file.analysis?.documentType}
-                          </Badge>
-                        </div>
+              {files.filter(f => f.status === 'analyzed' && f.analysis).map((file) => (
+                <Card key={file.id} className="p-6 border border-gray-200 shadow-sm">
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="flex items-start space-x-3 flex-1">
+                      <div className="flex-shrink-0 mt-1">
+                        {getFileIcon(file.type)}
                       </div>
-                      <div className="flex-shrink-0 text-right">
-                        <div className="text-xs text-gray-500 mb-1">신뢰도</div>
-                        <div className="text-xl font-bold text-blue-600">
-                          {file.analysis?.confidence}%
-                        </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                          {file.name}
+                        </h4>
+                        <Badge variant="secondary" className="text-xs mb-2">
+                          {file.analysis?.documentType}
+                        </Badge>
                       </div>
                     </div>
-                    
-                    <p className="text-sm text-gray-700 mb-4 line-clamp-3">
+                    <div className="flex-shrink-0 text-right">
+                      <div className="text-xs text-gray-500 mb-1">신뢰도</div>
+                      <div className="text-xl font-bold text-blue-600">
+                        {file.analysis?.confidence}%
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* 상세 요약 */}
+                  <div className="mb-6">
+                    <h5 className="text-sm font-semibold text-gray-900 mb-2">📋 문서 요약</h5>
+                    <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">
                       {file.analysis?.summary}
                     </p>
-                    
-                    <div className="space-y-3">
-                      <h5 className="text-sm font-medium text-gray-900">주요 포인트:</h5>
+                  </div>
+
+                  {/* 요구사항 요약 */}
+                  {file.analysis?.requirementsSummary && (
+                    (file.analysis.requirementsSummary.functionalRequirements?.length > 0 ||
+                     file.analysis.requirementsSummary.nonFunctionalRequirements?.length > 0 ||
+                     file.analysis.requirementsSummary.systemRequirements?.length > 0 ||
+                     file.analysis.requirementsSummary.businessRequirements?.length > 0) && (
+                    <div className="mb-6">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-4">📝 요구사항 요약</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* 기능 요구사항 */}
+                        {file.analysis.requirementsSummary.functionalRequirements && 
+                         file.analysis.requirementsSummary.functionalRequirements.length > 0 && (
+                          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <h6 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
+                              <span className="mr-2">⚙️</span>
+                              기능 요구사항
+                            </h6>
+                            <div className="space-y-2">
+                              {file.analysis.requirementsSummary.functionalRequirements.map((req, index) => (
+                                <div key={index} className="text-sm text-blue-800 bg-white p-2 rounded border border-blue-100">
+                                  <span className="font-medium text-blue-600 mr-2">{index + 1}.</span>
+                                  {req}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 비기능 요구사항 */}
+                        {file.analysis.requirementsSummary.nonFunctionalRequirements && 
+                         file.analysis.requirementsSummary.nonFunctionalRequirements.length > 0 && (
+                          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <h6 className="text-sm font-semibold text-green-900 mb-3 flex items-center">
+                              <span className="mr-2">🔒</span>
+                              비기능 요구사항
+                            </h6>
+                            <div className="space-y-2">
+                              {file.analysis.requirementsSummary.nonFunctionalRequirements.map((req, index) => (
+                                <div key={index} className="text-sm text-green-800 bg-white p-2 rounded border border-green-100">
+                                  <span className="font-medium text-green-600 mr-2">{index + 1}.</span>
+                                  {req}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 시스템 요구사항 */}
+                        {file.analysis.requirementsSummary.systemRequirements && 
+                         file.analysis.requirementsSummary.systemRequirements.length > 0 && (
+                          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                            <h6 className="text-sm font-semibold text-purple-900 mb-3 flex items-center">
+                              <span className="mr-2">🖥️</span>
+                              시스템 요구사항
+                            </h6>
+                            <div className="space-y-2">
+                              {file.analysis.requirementsSummary.systemRequirements.map((req, index) => (
+                                <div key={index} className="text-sm text-purple-800 bg-white p-2 rounded border border-purple-100">
+                                  <span className="font-medium text-purple-600 mr-2">{index + 1}.</span>
+                                  {req}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 비즈니스 요구사항 */}
+                        {file.analysis.requirementsSummary.businessRequirements && 
+                         file.analysis.requirementsSummary.businessRequirements.length > 0 && (
+                          <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                            <h6 className="text-sm font-semibold text-orange-900 mb-3 flex items-center">
+                              <span className="mr-2">💼</span>
+                              비즈니스 요구사항
+                            </h6>
+                            <div className="space-y-2">
+                              {file.analysis.requirementsSummary.businessRequirements.map((req, index) => (
+                                <div key={index} className="text-sm text-orange-800 bg-white p-2 rounded border border-orange-100">
+                                  <span className="font-medium text-orange-600 mr-2">{index + 1}.</span>
+                                  {req}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    )
+                  )}
+
+                  {/* 상세 분석 */}
+                  {file.analysis?.detailedAnalysis && (
+                    <div className="mb-6">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-2">🔍 상세 분석</h5>
+                      <p className="text-sm text-gray-700 leading-relaxed bg-blue-50 p-4 rounded-lg border border-blue-100">
+                        {file.analysis.detailedAnalysis}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 주요 포인트 */}
+                  {file.analysis?.keyPoints && file.analysis.keyPoints.length > 0 && (
+                    <div className="mb-6">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">✨ 주요 포인트</h5>
+                      <div className="space-y-2">
+                        {file.analysis.keyPoints.map((point, index) => (
+                          <div key={index} className="flex items-start space-x-2 text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                            <span className="text-blue-600 font-semibold mt-0.5">{index + 1}.</span>
+                            <span className="flex-1">{point}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 문서 섹션 */}
+                  {file.analysis?.sections && file.analysis.sections.length > 0 && (
+                    <div className="mb-6">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">📑 문서 구조</h5>
                       <div className="flex flex-wrap gap-2">
-                        {file.analysis?.keyPoints.slice(0, 3).map((point, index) => (
-                          <Badge key={index} variant="outline" className="text-xs px-2 py-1">
-                            {point}
+                        {file.analysis.sections.map((section, index) => (
+                          <Badge key={index} variant="outline" className="text-xs px-3 py-1.5 bg-green-50 text-green-700 border-green-200">
+                            {section}
                           </Badge>
                         ))}
                       </div>
                     </div>
-                  </Card>
-                ))}
-              </div>
+                  )}
+
+                  {/* 중요한 세부사항 */}
+                  {file.analysis?.importantDetails && file.analysis.importantDetails.length > 0 && (
+                    <div className="mb-6">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">⚠️ 중요한 세부사항</h5>
+                      <div className="space-y-2">
+                        {file.analysis.importantDetails.map((detail, index) => (
+                          <div key={index} className="flex items-start space-x-2 text-sm text-gray-700 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                            <span className="text-yellow-600 font-semibold mt-0.5">•</span>
+                            <span className="flex-1">{detail}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 비즈니스 맥락 */}
+                  {file.analysis?.businessContext && (
+                    <div className="mb-6">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-2">💼 비즈니스 맥락</h5>
+                      <p className="text-sm text-gray-700 leading-relaxed bg-purple-50 p-4 rounded-lg border border-purple-100">
+                        {file.analysis.businessContext}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 기술적 요구사항 */}
+                  {file.analysis?.technicalRequirements && file.analysis.technicalRequirements.length > 0 && (
+                    <div className="mb-6">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">⚙️ 기술적 요구사항</h5>
+                      <div className="space-y-2">
+                        {file.analysis.technicalRequirements.map((req, index) => (
+                          <div key={index} className="flex items-start space-x-2 text-sm text-gray-700 bg-indigo-50 p-3 rounded-lg border border-indigo-100">
+                            <span className="text-indigo-600 font-semibold mt-0.5">🔧</span>
+                            <span className="flex-1">{req}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 사용자 스토리 */}
+                  {file.analysis?.userStories && file.analysis.userStories.length > 0 && (
+                    <div className="mb-6">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">👤 사용자 스토리</h5>
+                      <div className="space-y-2">
+                        {file.analysis.userStories.map((story, index) => (
+                          <div key={index} className="flex items-start space-x-2 text-sm text-gray-700 bg-teal-50 p-3 rounded-lg border border-teal-100">
+                            <span className="text-teal-600 font-semibold mt-0.5">📖</span>
+                            <span className="flex-1">{story}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 관련 요구사항 */}
+                  {file.analysis?.relatedRequirements && file.analysis.relatedRequirements.length > 0 && (
+                    <div className="mb-6">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">🔗 관련 요구사항</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {file.analysis.relatedRequirements.map((req, index) => (
+                          <Badge key={index} variant="outline" className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 border-blue-200">
+                            {req}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 추천 질문 */}
+                  {file.analysis?.suggestedQuestions && file.analysis.suggestedQuestions.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">❓ 추천 질문</h5>
+                      <div className="space-y-2">
+                        {file.analysis.suggestedQuestions.map((question, index) => (
+                          <div key={index} className="flex items-start space-x-2 text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                            <span className="text-gray-600 font-semibold mt-0.5">Q{index + 1}.</span>
+                            <span className="flex-1">{question}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              ))}
             </div>
           </CardContent>
         </Card>
