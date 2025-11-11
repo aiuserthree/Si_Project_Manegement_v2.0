@@ -8,9 +8,98 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Save, Copy, Sparkles, Download, RefreshCw, CheckCircle } from 'lucide-react'
 import { Function } from './WBSGantt'
 
+interface MenuNode {
+  id: string
+  name: string
+  depth1: string
+  depth2: string
+  depth3: string
+  depth4: string
+  depth5: string
+  screenName: string
+  accessLevel: 'all' | 'login'
+  hasAdmin: boolean
+  expanded?: boolean
+  children?: MenuNode[]
+}
+
 interface FigmaMakePromptProps {
   onSave?: () => void
   onNextStep?: () => void
+}
+
+// 메뉴 구조 데이터 (실제로는 전역 상태나 API에서 가져와야 함)
+const mockMenuData: MenuNode[] = [
+  {
+    id: '1',
+    name: '홈',
+    depth1: '홈',
+    depth2: '',
+    depth3: '',
+    depth4: '',
+    depth5: '',
+    screenName: '/',
+    accessLevel: 'all',
+    hasAdmin: false,
+    children: []
+  },
+  {
+    id: '2',
+    name: '사용자 관리',
+    depth1: '관리',
+    depth2: '사용자 관리',
+    depth3: '',
+    depth4: '',
+    depth5: '',
+    screenName: '/admin/users',
+    accessLevel: 'login',
+    hasAdmin: true,
+    children: [
+      {
+        id: '2-1',
+        name: '사용자 목록',
+        depth1: '관리',
+        depth2: '사용자 관리',
+        depth3: '사용자 목록',
+        depth4: '',
+        depth5: '',
+        screenName: '/admin/users/list',
+        accessLevel: 'login',
+        hasAdmin: true,
+        children: []
+      }
+    ]
+  }
+]
+
+// 컴포넌트 코드 생성 함수
+const generateComponentCode = (menu: MenuNode, index: number): string => {
+  // 메뉴 ID를 기반으로 컴포넌트 코드 생성
+  const menuId = menu.id.replace(/-/g, '')
+  const depthPath = [menu.depth1, menu.depth2, menu.depth3, menu.depth4, menu.depth5]
+    .filter(d => d)
+    .join('-')
+    .replace(/\s+/g, '-')
+    .toUpperCase()
+  
+  // 컴포넌트 코드 형식: COMP-{메뉴ID}-{순번} 또는 COMP-{경로}
+  if (depthPath) {
+    return `COMP-${depthPath}-${String(index + 1).padStart(3, '0')}`
+  }
+  return `COMP-${menuId}-${String(index + 1).padStart(3, '0')}`
+}
+
+// 모든 메뉴 노드를 평탄화하는 함수
+const flattenMenuNodes = (nodes: MenuNode[]): MenuNode[] => {
+  const result: MenuNode[] = []
+  const traverse = (node: MenuNode) => {
+    result.push(node)
+    if (node.children && node.children.length > 0) {
+      node.children.forEach(child => traverse(child))
+    }
+  }
+  nodes.forEach(node => traverse(node))
+  return result
 }
 
 // 기능정의서 데이터 (실제로는 전역 상태나 API에서 가져와야 함)
@@ -53,16 +142,19 @@ const mockFunctions: Function[] = [
 
 export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
   const [functions, setFunctions] = useState<Function[]>(mockFunctions)
+  const [menuData, setMenuData] = useState<MenuNode[]>(mockMenuData)
   const [selectedFunction, setSelectedFunction] = useState<string>('all')
   const [promptType, setPromptType] = useState<'screen' | 'component' | 'flow'>('screen')
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('')
   const [copied, setCopied] = useState(false)
 
-  // 기능정의서 데이터 로드 (실제로는 전역 상태나 API에서 가져와야 함)
+  // 기능정의서 및 메뉴 구조 데이터 로드 (실제로는 전역 상태나 API에서 가져와야 함)
   useEffect(() => {
     // TODO: 실제 데이터 소스에서 가져오기
     // const savedFunctions = getFunctionsFromGlobalState()
+    // const savedMenuData = getMenuDataFromGlobalState()
     // setFunctions(savedFunctions)
+    // setMenuData(savedMenuData)
   }, [])
 
   // 피그마 메이크 프롬프트 생성
@@ -84,10 +176,26 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
       prompt += `## 프로젝트 개요\n`
       prompt += `다음 기능정의서를 기반으로 Figma 화면을 설계해주세요.\n\n`
       
+      // 메뉴 구조별 컴포넌트 코드 매핑
+      const flattenedMenus = flattenMenuNodes(menuData)
+      const menuComponentMap = new Map<string, string>()
+      flattenedMenus.forEach((menu, idx) => {
+        const componentCode = generateComponentCode(menu, idx)
+        const menuPath = [menu.depth1, menu.depth2, menu.depth3].filter(d => d).join(' > ')
+        menuComponentMap.set(menuPath, componentCode)
+      })
+      
       targetFunctions.forEach((func, index) => {
+        const menuPath = [func.depth1, func.depth2, func.depth3].filter(d => d).join(' > ')
+        const componentCode = menuComponentMap.get(menuPath) || generateComponentCode(
+          { id: func.id, name: func.name, depth1: func.depth1 || '', depth2: func.depth2 || '', depth3: func.depth3 || '', depth4: '', depth5: '', screenName: func.page || '', accessLevel: 'login', hasAdmin: false },
+          index
+        )
+        
         prompt += `### ${index + 1}. ${func.name} (${func.functionId})\n`
         prompt += `- **구분**: ${func.division || 'N/A'}\n`
-        prompt += `- **메뉴 구조**: ${func.depth1 || ''} > ${func.depth2 || ''} > ${func.depth3 || ''}\n`
+        prompt += `- **메뉴 구조**: ${menuPath || 'N/A'}\n`
+        prompt += `- **컴포넌트 코드**: ${componentCode}\n`
         prompt += `- **페이지**: ${func.page || 'N/A'}\n`
         prompt += `- **플랫폼**: ${func.platform || 'N/A'}\n`
         prompt += `- **설명**: ${func.description}\n`
@@ -104,6 +212,22 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
           })
           prompt += `\n`
         }
+      })
+      
+      // 메뉴 구조별 컴포넌트 코드 목록 추가
+      prompt += `## 메뉴 구조별 컴포넌트 코드 매핑\n\n`
+      flattenedMenus.forEach((menu, idx) => {
+        const componentCode = generateComponentCode(menu, idx)
+        const menuPath = [menu.depth1, menu.depth2, menu.depth3, menu.depth4, menu.depth5]
+          .filter(d => d)
+          .join(' > ')
+        prompt += `- **${menuPath || menu.name}** → 컴포넌트 코드: \`${componentCode}\`\n`
+        prompt += `  - 화면명: ${menu.screenName}\n`
+        prompt += `  - 접근 권한: ${menu.accessLevel === 'all' ? '전체' : '로그인'}\n`
+        if (menu.hasAdmin) {
+          prompt += `  - 관리자 기능 포함\n`
+        }
+        prompt += `\n`
       })
 
       prompt += `## 디자인 요구사항\n`
@@ -125,39 +249,86 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
       prompt = `# Figma Make 프롬프트 - 컴포넌트 설계\n\n`
       prompt += `## 컴포넌트 설계 요청\n\n`
       
+      // 메뉴 구조별 컴포넌트 코드 매핑
+      const flattenedMenus = flattenMenuNodes(menuData)
+      const menuComponentMap = new Map<string, string>()
+      flattenedMenus.forEach((menu, idx) => {
+        const componentCode = generateComponentCode(menu, idx)
+        const menuPath = [menu.depth1, menu.depth2, menu.depth3].filter(d => d).join(' > ')
+        menuComponentMap.set(menuPath, componentCode)
+      })
+      
       targetFunctions.forEach((func, index) => {
+        const menuPath = [func.depth1, func.depth2, func.depth3].filter(d => d).join(' > ')
+        const componentCode = menuComponentMap.get(menuPath) || generateComponentCode(
+          { id: func.id, name: func.name, depth1: func.depth1 || '', depth2: func.depth2 || '', depth3: func.depth3 || '', depth4: '', depth5: '', screenName: func.page || '', accessLevel: 'login', hasAdmin: false },
+          index
+        )
+        
         prompt += `### ${index + 1}. ${func.name} 관련 컴포넌트\n`
         prompt += `**기능 ID**: ${func.functionId}\n`
+        prompt += `**메뉴 구조**: ${menuPath || 'N/A'}\n`
+        prompt += `**컴포넌트 코드**: ${componentCode}\n`
         prompt += `**설명**: ${func.description}\n\n`
         
         prompt += `**필요한 컴포넌트**:\n`
+        prompt += `- 메인 컴포넌트: \`${componentCode}\` (${func.name} 화면의 메인 컴포넌트)\n`
         if (func.requiredRoles.includes('디자이너')) {
-          prompt += `- 입력 폼 컴포넌트\n`
-          prompt += `- 버튼 컴포넌트\n`
-          prompt += `- 카드/컨테이너 컴포넌트\n`
+          prompt += `- 입력 폼 컴포넌트: \`${componentCode}-FORM\`\n`
+          prompt += `- 버튼 컴포넌트: \`${componentCode}-BUTTON\`\n`
+          prompt += `- 카드/컨테이너 컴포넌트: \`${componentCode}-CARD\`\n`
         }
         if (func.requiredRoles.includes('퍼블리셔')) {
-          prompt += `- 레이아웃 컴포넌트\n`
-          prompt += `- 네비게이션 컴포넌트\n`
+          prompt += `- 레이아웃 컴포넌트: \`${componentCode}-LAYOUT\`\n`
+          prompt += `- 네비게이션 컴포넌트: \`${componentCode}-NAV\`\n`
         }
         prompt += `\n`
       })
+      
+      // 전체 메뉴 구조별 컴포넌트 코드 목록
+      prompt += `## 전체 메뉴 구조별 컴포넌트 코드 목록\n\n`
+      flattenedMenus.forEach((menu, idx) => {
+        const componentCode = generateComponentCode(menu, idx)
+        const menuPath = [menu.depth1, menu.depth2, menu.depth3, menu.depth4, menu.depth5]
+          .filter(d => d)
+          .join(' > ')
+        prompt += `- \`${componentCode}\`: ${menuPath || menu.name}\n`
+      })
 
-      prompt += `## 컴포넌트 설계 가이드\n`
-      prompt += `1. 재사용 가능한 컴포넌트로 설계하세요.\n`
-      prompt += `2. 컴포넌트 변형(Variants)을 활용하세요.\n`
-      prompt += `3. Auto Layout을 적극 활용하세요.\n`
-      prompt += `4. 디자인 토큰(색상, 타이포그래피, 간격)을 정의하세요.\n`
+      prompt += `\n## 컴포넌트 설계 가이드\n`
+      prompt += `1. 각 메뉴별로 지정된 컴포넌트 코드를 사용하여 컴포넌트를 생성하세요.\n`
+      prompt += `2. 컴포넌트 이름은 반드시 위에 명시된 컴포넌트 코드를 사용하세요.\n`
+      prompt += `3. 재사용 가능한 컴포넌트로 설계하세요.\n`
+      prompt += `4. 컴포넌트 변형(Variants)을 활용하세요.\n`
+      prompt += `5. Auto Layout을 적극 활용하세요.\n`
+      prompt += `6. 디자인 토큰(색상, 타이포그래피, 간격)을 정의하세요.\n`
+      prompt += `7. 각 컴포넌트의 Figma 인스턴스 이름에 컴포넌트 코드를 포함하세요.\n`
 
     } else if (promptType === 'flow') {
       // 플로우 단위 프롬프트 생성
       prompt = `# Figma Make 프롬프트 - 사용자 플로우 설계\n\n`
       prompt += `## 사용자 플로우 설계 요청\n\n`
       
+      // 메뉴 구조별 컴포넌트 코드 매핑
+      const flattenedMenus = flattenMenuNodes(menuData)
+      const menuComponentMap = new Map<string, string>()
+      flattenedMenus.forEach((menu, idx) => {
+        const componentCode = generateComponentCode(menu, idx)
+        const menuPath = [menu.depth1, menu.depth2, menu.depth3].filter(d => d).join(' > ')
+        menuComponentMap.set(menuPath, componentCode)
+      })
+      
       targetFunctions.forEach((func, index) => {
+        const menuPath = [func.depth1, func.depth2, func.depth3].filter(d => d).join(' > ')
+        const componentCode = menuComponentMap.get(menuPath) || generateComponentCode(
+          { id: func.id, name: func.name, depth1: func.depth1 || '', depth2: func.depth2 || '', depth3: func.depth3 || '', depth4: '', depth5: '', screenName: func.page || '', accessLevel: 'login', hasAdmin: false },
+          index
+        )
+        
         prompt += `### ${index + 1}. ${func.name} 플로우\n`
         prompt += `**기능**: ${func.name}\n`
-        prompt += `**경로**: ${func.depth1 || ''} > ${func.depth2 || ''} > ${func.depth3 || ''}\n`
+        prompt += `**경로**: ${menuPath || 'N/A'}\n`
+        prompt += `**컴포넌트 코드**: ${componentCode}\n`
         prompt += `**설명**: ${func.description}\n\n`
         
         if (func.tasks && func.tasks.length > 0) {
@@ -167,6 +338,17 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
           })
           prompt += `\n`
         }
+      })
+      
+      // 플로우에서 사용되는 컴포넌트 코드 참조
+      prompt += `## 플로우 내 컴포넌트 코드 참조\n\n`
+      prompt += `각 화면 전환 시 다음 컴포넌트 코드를 사용하세요:\n\n`
+      flattenedMenus.forEach((menu, idx) => {
+        const componentCode = generateComponentCode(menu, idx)
+        const menuPath = [menu.depth1, menu.depth2, menu.depth3, menu.depth4, menu.depth5]
+          .filter(d => d)
+          .join(' > ')
+        prompt += `- ${menuPath || menu.name}: \`${componentCode}\`\n`
       })
 
       prompt += `## 플로우 설계 가이드\n`

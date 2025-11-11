@@ -8,7 +8,6 @@ import { RequirementsDefinition } from './components/steps/RequirementsDefinitio
 import { MenuStructure } from './components/steps/MenuStructure'
 import { ResourceManagement } from './components/steps/ResourceManagement'
 import { WBSGantt } from './components/steps/WBSGantt'
-import { IADesign } from './components/steps/IADesign'
 import { FigmaMakePrompt } from './components/steps/FigmaMakePrompt'
 import { DocumentEditor } from './components/steps/DocumentEditor'
 import { DevelopmentGuide } from './components/steps/DevelopmentGuide'
@@ -110,7 +109,7 @@ export default function App() {
   }
 
   const handleNextStep = () => {
-    if (currentStep < 10) {
+    if (currentStep < 9) {
       setCurrentStep(currentStep + 1)
     } else {
       setAppState('dashboard')
@@ -132,12 +131,10 @@ export default function App() {
       case 6:
         return <WBSGantt onSave={handleSave} onNextStep={handleNextStep} />
       case 7:
-        return <IADesign onSave={handleSave} onNextStep={handleNextStep} />
-      case 8:
         return <FigmaMakePrompt onSave={handleSave} onNextStep={handleNextStep} />
-      case 9:
+      case 8:
         return <DocumentEditor onSave={handleSave} onNextStep={handleNextStep} />
-      case 10:
+      case 9:
         return <DevelopmentGuide onSave={handleSave} onNextStep={handleNextStep} />
       default:
         return <FileUpload onSave={handleSave} onNextStep={handleNextStep} />

@@ -3,7 +3,6 @@ import {
   LayoutDashboard, 
   FileText, 
   FileEdit, 
-  Network, 
   Code2, 
   Settings, 
   Users,
@@ -37,10 +36,9 @@ const workflowSteps = [
   { id: 4, label: '메뉴 구조', icon: Layout, description: '시스템 메뉴 구조 설계' },
   { id: 5, label: '인력 관리', icon: UserPlus, description: '인력 pool 및 프로젝트 투입 관리' },
   { id: 6, label: 'WBS', icon: GanttChartSquare, description: '작업 분해 및 일정 관리' },
-  { id: 7, label: 'IA 디자인', icon: Network, description: '와이어프레임 및 IA 설계' },
-  { id: 8, label: '피그마 메이크 프롬프트', icon: Sparkles, description: '기능정의서 기반 프롬프트 자동생성' },
-  { id: 9, label: '문서 편집', icon: FileText, description: '개발 문서 생성' },
-  { id: 10, label: '개발 가이드', icon: BookOpen, description: '최종 개발 가이드 생성' },
+  { id: 7, label: '피그마 메이크 프롬프트', icon: Sparkles, description: '기능정의서 기반 프롬프트 자동생성' },
+  { id: 8, label: '문서 편집', icon: FileText, description: '개발 문서 생성' },
+  { id: 9, label: '개발 가이드', icon: BookOpen, description: '최종 개발 가이드 생성' },
 ]
 
 interface SidebarProps {
