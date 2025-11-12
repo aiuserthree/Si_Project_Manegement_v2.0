@@ -73,7 +73,7 @@ export function AppLayout({ children, currentStep, onStepChange, onSave, current
       {/* Mobile Sidebar Overlay */}
       {isMobile && sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
           onClick={handleSidebarClose}
         />
       )}

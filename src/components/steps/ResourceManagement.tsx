@@ -385,7 +385,7 @@ export function ResourceManagement({ onSave, onNextStep }: ResourceManagementPro
 
       {/* Add/Edit Resource Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[500px] w-[90vw]">
           <DialogHeader>
             <DialogTitle>
               {isEditMode ? '인력 정보 수정' : '새 인력 추가'}
