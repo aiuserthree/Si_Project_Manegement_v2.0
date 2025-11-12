@@ -577,11 +577,12 @@ export function FunctionalSpecification({ onSave, onNextStep }: FunctionalSpecif
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
+      {/* Top Actions */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">기능정의서 자동생성</h1>
-          <p className="text-gray-600 mt-2">메뉴 구조를 기반으로 기능정의서를 자동 생성합니다.</p>
+          <h2 className="text-2xl font-bold">기능정의서</h2>
+          <p className="text-gray-600 mt-1">메뉴 구조를 기반으로 기능정의서를 자동 생성합니다</p>
         </div>
       </div>
 

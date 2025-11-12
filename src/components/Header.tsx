@@ -1,6 +1,5 @@
-import { Search, ChevronDown, Plus, Zap, Download, Menu, User, LogOut, Settings } from 'lucide-react'
+import { Plus, Menu, User, LogOut, Settings } from 'lucide-react'
 import { Button } from './ui/button'
-import { Input } from './ui/input'
 import { Progress } from './ui/progress'
 import { Badge } from './ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from './ui/dropdown-menu'
@@ -127,46 +126,6 @@ export function Header({ onMenuClick, isMobile, onMenuChange }: HeaderProps) {
         </div>
       </div>
 
-      {/* Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-0">
-        {/* Quick Actions */}
-        <div className="flex items-center gap-2 md:gap-3 overflow-x-auto">
-          <Button className="bg-blue-700 hover:bg-blue-800 text-white whitespace-nowrap text-sm">
-            <Plus className="w-4 h-4 mr-1 md:mr-2" />
-            {isMobile ? '새 요구사항' : '새 요구사항 추가'}
-          </Button>
-          <Button variant="outline" className="border-teal-600 text-teal-600 hover:bg-teal-50 whitespace-nowrap text-sm">
-            <Zap className="w-4 h-4 mr-1 md:mr-2" />
-            AI 분석
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="whitespace-nowrap text-sm">
-                <Download className="w-4 h-4 mr-1 md:mr-2" />
-                Export
-                <ChevronDown className="w-4 h-4 ml-1 md:ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem>요구사항 정의서 (PDF)</DropdownMenuItem>
-              <DropdownMenuItem>IA 문서 (Excel)</DropdownMenuItem>
-              <DropdownMenuItem>개발 가이드 (MD)</DropdownMenuItem>
-              <DropdownMenuItem>전체 문서 패키지</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* Search Bar */}
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input 
-              placeholder={isMobile ? "검색..." : "요구사항, IA 코드 검색..."} 
-              className={`pl-10 bg-gray-50 text-sm ${isMobile ? 'w-full' : 'w-60 md:w-80'}`}
-            />
-          </div>
-        </div>
-      </div>
 
       {/* Logout Confirmation Dialog */}
       {showLogoutDialog && (

@@ -259,7 +259,7 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Error Alert */}
       {error && (
         <Alert variant="destructive">
@@ -268,15 +268,17 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
         </Alert>
       )}
 
+      {/* Top Actions */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">프로젝트 파일 업로드</h2>
+          <p className="text-gray-600 mt-1">프로젝트 관련 문서를 업로드하여 요구사항 분석을 시작하세요</p>
+        </div>
+      </div>
+
       {/* Main Upload Card */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">프로젝트 파일 업로드</CardTitle>
-          <p className="text-gray-600">
-            프로젝트 관련 문서를 업로드하여 요구사항 분석을 시작하세요
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="pt-6 space-y-6">
           {/* Upload Zone */}
           <div
             className={`

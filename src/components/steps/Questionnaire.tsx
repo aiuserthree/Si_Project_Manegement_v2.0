@@ -381,17 +381,21 @@ export function Questionnaire({ onSave, onNextStep }: QuestionnaireProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-      {/* Main Content */}
-      <div className="lg:col-span-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl">프로젝트 질의서</CardTitle>
-            <div className="flex items-center justify-between">
-              <p className="text-gray-600">
-                프로젝트의 요구사항을 파악하기 위한 질문에 답변해 주세요
-              </p>
-              <div className="flex items-center space-x-4">
+    <div className="space-y-6">
+      {/* Top Actions */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">프로젝트 질의서</h2>
+          <p className="text-gray-600 mt-1">프로젝트의 요구사항을 파악하기 위한 질문에 답변해 주세요</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-3">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-end space-x-4">
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -415,8 +419,7 @@ export function Questionnaire({ onSave, onNextStep }: QuestionnaireProps) {
                   <span>자동 저장됨</span>
                 </div>
               </div>
-            </div>
-          </CardHeader>
+            </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <div className="overflow-x-auto mb-6">
@@ -617,6 +620,7 @@ export function Questionnaire({ onSave, onNextStep }: QuestionnaireProps) {
             저장 및 다음 단계
           </Button>
         </div>
+      </div>
       </div>
 
     </div>

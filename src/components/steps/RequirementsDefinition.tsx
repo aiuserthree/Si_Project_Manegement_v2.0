@@ -361,11 +361,13 @@ export function RequirementsDefinition({ onSave, onNextStep }: RequirementsDefin
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl">요구사항 정의서</CardTitle>
-            <div className="flex items-center space-x-3">
+      {/* Top Actions */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">요구사항 정의서</h2>
+          <p className="text-gray-600 mt-1">프로젝트 요구사항을 정의하고 관리하세요</p>
+        </div>
+        <div className="flex items-center space-x-3">
               <div>
                 <input
                   type="file"
@@ -406,10 +408,11 @@ export function RequirementsDefinition({ onSave, onNextStep }: RequirementsDefin
                 <span>🤖</span>
                 <span>AI 분석</span>
               </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6 space-y-6">
           {/* Filter Bar */}
           <div className="flex items-center justify-between space-x-4">
             <div className="flex items-center space-x-4">
