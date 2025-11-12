@@ -1532,12 +1532,6 @@ export function DevelopmentGuide({ onSave, onNextStep }: DevelopmentGuideProps) 
                         <span className="text-sm font-medium">{section.title}</span>
                       </div>
                       <div className="flex items-center space-x-1">
-                        <div className="w-12 bg-gray-200 rounded-full h-1">
-                          <div 
-                            className="bg-blue-600 h-1 rounded-full"
-                            style={{ width: `${section.progress}%` }}
-                          />
-                        </div>
                         {section.expanded ? (
                           <ChevronDown className="w-4 h-4" />
                         ) : (
