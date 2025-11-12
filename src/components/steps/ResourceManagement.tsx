@@ -484,6 +484,7 @@ export function ResourceManagement({ onSave, onNextStep }: ResourceManagementPro
           저장 및 다음 단계
         </Button>
       </div>
+
     </div>
   )
 }

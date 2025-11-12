@@ -6,7 +6,7 @@ import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
 import { Badge } from '../ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
-import { Download, FileText, RefreshCw, CheckCircle2, FileSpreadsheet } from 'lucide-react'
+import { Download, FileText, RefreshCw, CheckCircle2, FileSpreadsheet, Save } from 'lucide-react'
 import { Alert, AlertDescription } from '../ui/alert'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
@@ -738,13 +738,18 @@ export function FunctionalSpecification({ onSave, onNextStep }: FunctionalSpecif
       )}
 
       <div className="flex justify-end gap-4">
-        <Button variant="outline" onClick={onSave}>
-          저장
-        </Button>
-        <Button onClick={onNextStep}>
-          다음 단계
+        <Button 
+          onClick={() => {
+            onSave?.()
+            onNextStep?.()
+          }}
+          className="bg-blue-600 hover:bg-blue-700 h-9 px-4 py-2"
+        >
+          <Save className="w-4 h-4 mr-2" />
+          저장 및 다음 단계
         </Button>
       </div>
+
     </div>
   )
 }

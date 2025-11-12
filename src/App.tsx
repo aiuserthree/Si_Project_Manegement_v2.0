@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { AppLayout } from './components/layout/AppLayout'
 import { LoginScreen } from './components/auth/LoginScreen'
+import { SignUpScreen } from './components/auth/SignUpScreen'
+import { ForgotPasswordScreen } from './components/auth/ForgotPasswordScreen'
+import { TermsOfService } from './components/auth/TermsOfService'
+import { PrivacyPolicy } from './components/auth/PrivacyPolicy'
 import { DashboardScreen } from './components/dashboard/DashboardScreen'
 import { FileUpload } from './components/steps/FileUpload'
 import { Questionnaire } from './components/steps/Questionnaire'
@@ -15,7 +19,7 @@ import { DevelopmentGuide } from './components/steps/DevelopmentGuide'
 import { SettingsScreen } from './components/settings/SettingsScreen'
 import { authService, User } from './services/authService'
 
-type AppState = 'login' | 'dashboard' | 'workflow'
+type AppState = 'login' | 'signup' | 'forgot-password' | 'terms' | 'privacy' | 'dashboard' | 'workflow'
 type MenuState = 'dashboard' | 'profile'
 
 export default function App() {
@@ -59,6 +63,35 @@ export default function App() {
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser)
     setAppState('dashboard')
+  }
+
+  const handleSignUpSuccess = (user: User) => {
+    setUser(user)
+    setAppState('dashboard')
+  }
+
+  const handleNavigateToSignUp = () => {
+    setAppState('signup')
+  }
+
+  const handleNavigateToLogin = () => {
+    setAppState('login')
+  }
+
+  const handleNavigateToForgotPassword = () => {
+    setAppState('forgot-password')
+  }
+
+  const handleNavigateToTerms = () => {
+    setAppState('terms')
+  }
+
+  const handleNavigateToPrivacy = () => {
+    setAppState('privacy')
+  }
+
+  const handleNavigateBackToSignUp = () => {
+    setAppState('signup')
   }
 
   const handleStartNewProject = () => {
@@ -158,7 +191,19 @@ export default function App() {
 
     switch (appState) {
       case 'login':
-        return <LoginScreen onLoginSuccess={handleLoginSuccess} />
+        return <LoginScreen onLoginSuccess={handleLoginSuccess} onNavigateToSignUp={handleNavigateToSignUp} onNavigateToForgotPassword={handleNavigateToForgotPassword} />
+      
+      case 'signup':
+        return <SignUpScreen onSignUpSuccess={handleSignUpSuccess} onNavigateToLogin={handleNavigateToLogin} onNavigateToTerms={handleNavigateToTerms} onNavigateToPrivacy={handleNavigateToPrivacy} />
+      
+      case 'forgot-password':
+        return <ForgotPasswordScreen onNavigateToLogin={handleNavigateToLogin} />
+      
+      case 'terms':
+        return <TermsOfService onNavigateBack={handleNavigateBackToSignUp} />
+      
+      case 'privacy':
+        return <PrivacyPolicy onNavigateBack={handleNavigateBackToSignUp} />
       
       case 'dashboard':
         return (

@@ -1095,6 +1095,7 @@ export function WBSGantt({ onSave, onNextStep }: WBSGanttProps) {
           저장 및 다음 단계
         </Button>
       </div>
+
     </div>
   )
 }

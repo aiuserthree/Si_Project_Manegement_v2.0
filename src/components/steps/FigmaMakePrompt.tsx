@@ -739,6 +739,7 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
           저장 및 다음 단계
         </Button>
       </div>
+
     </div>
   )
 }

@@ -175,7 +175,6 @@ const setDivisionForNodes = (nodes: MenuNode[]): MenuNode[] => {
 export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
   const [menuData, setMenuData] = useState<MenuNode[]>(setDivisionForNodes(mockMenuData))
   const [selectedNode, setSelectedNode] = useState<MenuNode | null>(null)
-  const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [activeTab, setActiveTab] = useState<'all' | 'FO' | 'BO'>('all')
 
   const toggleNode = (nodeId: string) => {
@@ -676,7 +675,10 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
       {/* Save Button */}
       <div className="flex justify-end mt-6">
         <Button 
-          onClick={() => setShowSaveDialog(true)}
+          onClick={() => {
+            onSave?.()
+            onNextStep?.()
+          }}
           className="bg-blue-600 hover:bg-blue-700"
         >
           <Save className="w-4 h-4 mr-2" />
@@ -684,36 +686,6 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
         </Button>
       </div>
 
-      {/* Save Confirmation Dialog */}
-      {showSaveDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">저장 확인</h3>
-            <p className="text-gray-600 mb-6">
-              메뉴 구조를 저장하고 다음 단계로 진행하시겠습니까?
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowSaveDialog(false)}
-              >
-                취소
-              </Button>
-              <Button 
-                variant="default" 
-                onClick={() => {
-                  setShowSaveDialog(false)
-                  onSave?.()
-                  onNextStep?.()
-                }}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                저장 및 다음 단계
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

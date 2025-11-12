@@ -5,13 +5,15 @@ import { Label } from '../ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Checkbox } from '../ui/checkbox'
 import { Alert, AlertDescription } from '../ui/alert'
-import { Loader2, Eye, EyeOff, Shield, Zap } from 'lucide-react'
+import { Loader2, Eye, EyeOff, Shield, Zap, Users } from 'lucide-react'
 
 interface LoginScreenProps {
   onLoginSuccess: (user: any) => void
+  onNavigateToSignUp?: () => void
+  onNavigateToForgotPassword?: () => void
 }
 
-export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
+export function LoginScreen({ onLoginSuccess, onNavigateToSignUp, onNavigateToForgotPassword }: LoginScreenProps) {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -68,6 +70,42 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       onLoginSuccess(user)
     } catch (err) {
       setError('로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleMicrosoftTeamsLogin = async () => {
+    setIsLoading(true)
+    setError('')
+
+    try {
+      // Microsoft Teams OAuth 로그인 시뮬레이션
+      // 실제 구현 시에는 Microsoft Teams OAuth 2.0 플로우를 사용해야 함
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Microsoft Teams 로그인 성공 시뮬레이션
+      const user = {
+        id: 'user-teams-001',
+        email: 'user@teams.microsoft.com',
+        name: 'Teams 사용자',
+        role: 'project-manager',
+        avatar: '/avatars/teams.png',
+        loginMethod: 'microsoft-teams'
+      }
+
+      // JWT 토큰 시뮬레이션
+      const token = 'mock-jwt-token-teams-' + Date.now()
+      const refreshToken = 'mock-refresh-token-teams-' + Date.now()
+
+      // 토큰 저장
+      localStorage.setItem('accessToken', token)
+      localStorage.setItem('refreshToken', refreshToken)
+      localStorage.setItem('user', JSON.stringify(user))
+
+      onLoginSuccess(user)
+    } catch (err) {
+      setError('Microsoft Teams 로그인에 실패했습니다.')
     } finally {
       setIsLoading(false)
     }
@@ -161,7 +199,16 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     로그인 상태 유지
                   </Label>
                 </div>
-                <Button variant="link" className="p-0 h-auto text-sm text-blue-600">
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto text-sm text-blue-600"
+                  onClick={() => {
+                    if (onNavigateToForgotPassword) {
+                      onNavigateToForgotPassword()
+                    }
+                  }}
+                  disabled={isLoading}
+                >
                   비밀번호 찾기
                 </Button>
               </div>
@@ -179,6 +226,26 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 ) : (
                   '로그인'
                 )}
+              </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-gray-500">또는</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-11"
+                onClick={handleMicrosoftTeamsLogin}
+                disabled={isLoading}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Microsoft Teams로 로그인
               </Button>
 
               <Button
@@ -201,7 +268,16 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 계정이 없으신가요?{' '}
-                <Button variant="link" className="p-0 h-auto text-sm text-blue-600">
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto text-sm text-blue-600"
+                  onClick={() => {
+                    if (onNavigateToSignUp) {
+                      onNavigateToSignUp()
+                    }
+                  }}
+                  disabled={isLoading}
+                >
                   회원가입
                 </Button>
               </p>

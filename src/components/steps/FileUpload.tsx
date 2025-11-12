@@ -37,7 +37,6 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
   const [analysisComplete, setAnalysisComplete] = useState(false)
   const [projectSummary, setProjectSummary] = useState<string>('')
   const [error, setError] = useState<string>('')
-  const [showSaveDialog, setShowSaveDialog] = useState(false)
 
   const getFileIcon = (type: string) => {
     if (type.includes('sheet') || type.includes('excel')) {
@@ -253,19 +252,10 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
   }
 
   const handleSaveClick = () => {
-    setShowSaveDialog(true)
-  }
-
-  const handleSaveConfirm = () => {
-    setShowSaveDialog(false)
     // 저장 로직 실행
     onSave?.()
     // 다음 단계로 이동
     onNextStep?.()
-  }
-
-  const handleSaveCancel = () => {
-    setShowSaveDialog(false)
   }
 
   return (
@@ -717,32 +707,6 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
         </Card>
       )}
 
-      {/* Save Confirmation Dialog */}
-      {showSaveDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">저장 확인</h3>
-            <p className="text-gray-600 mb-6">
-              파일 분석 결과를 저장하고 다음 단계로 진행하시겠습니까?
-            </p>
-            <div className="flex justify-end gap-3 mt-16">
-              <Button 
-                variant="outline" 
-                onClick={handleSaveCancel}
-              >
-                취소
-              </Button>
-              <Button 
-                variant="default" 
-                onClick={handleSaveConfirm}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                저장 및 다음 단계
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

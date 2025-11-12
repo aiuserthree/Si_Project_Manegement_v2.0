@@ -3,6 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Progress } from '../ui/progress'
+import { Input } from '../ui/input'
+import { Label } from '../ui/label'
+import { Textarea } from '../ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog'
 import { ProfileScreen } from '../settings/ProfileScreen'
 import { 
   Plus, 
@@ -18,7 +22,8 @@ import {
   Zap,
   Target,
   BarChart3,
-  LogOut
+  LogOut,
+  Loader2
 } from 'lucide-react'
 
 interface DashboardScreenProps {
@@ -50,9 +55,27 @@ interface Stats {
   aiAnalyses: number
 }
 
+interface ProjectFormData {
+  name: string
+  client: string
+  description: string
+  startDate: string
+  endDate: string
+}
+
 export function DashboardScreen({ onStartNewProject, onContinueProject, currentMenu = 'dashboard', onMenuChange, onBackToPrevious, onLogout }: DashboardScreenProps) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false)
   const [showAllProjects, setShowAllProjects] = useState(false)
+  const [showNewProjectDialog, setShowNewProjectDialog] = useState(false)
+  const [projectFormData, setProjectFormData] = useState<ProjectFormData>({
+    name: '',
+    client: '',
+    description: '',
+    startDate: '',
+    endDate: ''
+  })
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof ProjectFormData, string>>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
   
   const [stats] = useState<Stats>({
     totalProjects: 12,
@@ -202,6 +225,113 @@ export function DashboardScreen({ onStartNewProject, onContinueProject, currentM
     setShowAllProjects(!showAllProjects)
   }
 
+  const handleNewProjectClick = () => {
+    setShowNewProjectDialog(true)
+    // 오늘 날짜를 기본값으로 설정
+    const today = new Date().toISOString().split('T')[0]
+    setProjectFormData({
+      name: '',
+      client: '',
+      description: '',
+      startDate: today,
+      endDate: ''
+    })
+    setFormErrors({})
+  }
+
+  const handleFormChange = (field: keyof ProjectFormData, value: string) => {
+    setProjectFormData(prev => ({ ...prev, [field]: value }))
+    // 에러가 있으면 해당 필드의 에러 제거
+    if (formErrors[field]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[field]
+        return newErrors
+      })
+    }
+  }
+
+  const validateForm = (): boolean => {
+    const errors: Partial<Record<keyof ProjectFormData, string>> = {}
+
+    if (!projectFormData.name.trim()) {
+      errors.name = '프로젝트명을 입력해주세요.'
+    }
+
+    if (!projectFormData.client.trim()) {
+      errors.client = '클라이언트명을 입력해주세요.'
+    }
+
+    if (!projectFormData.startDate) {
+      errors.startDate = '시작일을 선택해주세요.'
+    }
+
+    if (!projectFormData.endDate) {
+      errors.endDate = '종료일을 선택해주세요.'
+    }
+
+    if (projectFormData.startDate && projectFormData.endDate) {
+      const start = new Date(projectFormData.startDate)
+      const end = new Date(projectFormData.endDate)
+      if (end < start) {
+        errors.endDate = '종료일은 시작일보다 이후여야 합니다.'
+      }
+    }
+
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleSaveProject = async () => {
+    if (!validateForm()) {
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      // 프로젝트 정보를 localStorage에 저장 (실제로는 API 호출)
+      const projectData = {
+        id: `proj-${Date.now()}`,
+        ...projectFormData,
+        status: 'active',
+        progress: 0,
+        currentStep: 1,
+        createdAt: new Date().toISOString()
+      }
+      
+      // 기존 프로젝트 목록 가져오기
+      const existingProjects = JSON.parse(localStorage.getItem('projects') || '[]')
+      existingProjects.unshift(projectData)
+      localStorage.setItem('projects', JSON.stringify(existingProjects))
+      
+      // 프로젝트 정보를 전역 상태에 저장 (선택사항)
+      localStorage.setItem('currentProject', JSON.stringify(projectData))
+      
+      // 약간의 지연 후 프로젝트 페이지로 이동
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      setShowNewProjectDialog(false)
+      onStartNewProject()
+    } catch (error) {
+      console.error('프로젝트 저장 실패:', error)
+      setFormErrors({ name: '프로젝트 저장에 실패했습니다. 다시 시도해주세요.' })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleCancelProject = () => {
+    setShowNewProjectDialog(false)
+    setProjectFormData({
+      name: '',
+      client: '',
+      description: '',
+      startDate: '',
+      endDate: ''
+    })
+    setFormErrors({})
+  }
+
   const renderMenuContent = () => {
     switch (currentMenu) {
       case 'profile':
@@ -236,7 +366,7 @@ export function DashboardScreen({ onStartNewProject, onContinueProject, currentM
               </div>
               <div className="flex items-center gap-3">
                 <Button 
-                  onClick={onStartNewProject}
+                  onClick={handleNewProjectClick}
                   className="bg-blue-600 hover:bg-blue-700"
                   size="lg"
                 >
@@ -395,6 +525,131 @@ export function DashboardScreen({ onStartNewProject, onContinueProject, currentM
       <div className="max-w-7xl mx-auto">
         {renderMenuContent()}
       </div>
+
+      {/* New Project Dialog */}
+      <Dialog open={showNewProjectDialog} onOpenChange={setShowNewProjectDialog}>
+        <DialogContent className="max-w-[500px] w-[90vw]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">새 프로젝트 생성</DialogTitle>
+            <DialogDescription>
+              프로젝트 기본 정보를 입력해주세요. 필수 항목은 반드시 입력해야 합니다.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* 프로젝트명 */}
+            <div className="space-y-2">
+              <Label htmlFor="project-name">
+                프로젝트명 <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="project-name"
+                placeholder="예: 이커머스 플랫폼 구축"
+                value={projectFormData.name}
+                onChange={(e) => handleFormChange('name', e.target.value)}
+                className={formErrors.name ? 'border-red-500' : ''}
+                disabled={isSubmitting}
+              />
+              {formErrors.name && (
+                <p className="text-sm text-red-500">{formErrors.name}</p>
+              )}
+            </div>
+
+            {/* 클라이언트명 */}
+            <div className="space-y-2">
+              <Label htmlFor="project-client">
+                클라이언트명 <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="project-client"
+                placeholder="예: ABC 쇼핑몰"
+                value={projectFormData.client}
+                onChange={(e) => handleFormChange('client', e.target.value)}
+                className={formErrors.client ? 'border-red-500' : ''}
+                disabled={isSubmitting}
+              />
+              {formErrors.client && (
+                <p className="text-sm text-red-500">{formErrors.client}</p>
+              )}
+            </div>
+
+            {/* 프로젝트 설명 */}
+            <div className="space-y-2">
+              <Label htmlFor="project-description">프로젝트 설명</Label>
+              <Textarea
+                id="project-description"
+                placeholder="프로젝트에 대한 간단한 설명을 입력해주세요 (선택사항)"
+                value={projectFormData.description}
+                onChange={(e) => handleFormChange('description', e.target.value)}
+                rows={3}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            {/* 날짜 선택 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="project-start-date">
+                  시작일 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="project-start-date"
+                  type="date"
+                  value={projectFormData.startDate}
+                  onChange={(e) => handleFormChange('startDate', e.target.value)}
+                  className={formErrors.startDate ? 'border-red-500' : ''}
+                  disabled={isSubmitting}
+                />
+                {formErrors.startDate && (
+                  <p className="text-sm text-red-500">{formErrors.startDate}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="project-end-date">
+                  종료일 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="project-end-date"
+                  type="date"
+                  value={projectFormData.endDate}
+                  onChange={(e) => handleFormChange('endDate', e.target.value)}
+                  min={projectFormData.startDate || undefined}
+                  className={formErrors.endDate ? 'border-red-500' : ''}
+                  disabled={isSubmitting}
+                />
+                {formErrors.endDate && (
+                  <p className="text-sm text-red-500">{formErrors.endDate}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancelProject}
+              disabled={isSubmitting}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleSaveProject}
+              disabled={isSubmitting}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  저장 중...
+                </>
+              ) : (
+                '저장하고 시작하기'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Logout Confirmation Dialog */}
       {showLogoutDialog && (
