@@ -207,7 +207,41 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
     setMenuData(updateNodes(menuData))
   }
 
+  // 부모 노드를 찾는 함수
+  const findParentNode = (nodes: MenuNode[], targetId: string): MenuNode | null => {
+    for (const node of nodes) {
+      if (node.id === targetId) {
+        return node
+      }
+      if (node.children) {
+        const found = findParentNode(node.children, targetId)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
   const addNewNode = (parentId?: string) => {
+    let division: 'FO' | 'BO' = 'FO' // 기본값은 FO
+
+    if (parentId) {
+      // 하위 메뉴로 추가 - 부모 노드의 division 상속
+      const parentNode = findParentNode(menuData, parentId)
+      if (parentNode) {
+        division = parentNode.division || inferDivision(parentNode)
+      }
+    } else {
+      // 최상위 메뉴로 추가 - 현재 활성화된 탭에 따라 division 설정
+      if (activeTab === 'BO') {
+        division = 'BO'
+      } else if (activeTab === 'FO') {
+        division = 'FO'
+      } else {
+        // 'all' 탭일 때는 기본값 FO 사용
+        division = 'FO'
+      }
+    }
+
     const newNode: MenuNode = {
       id: Date.now().toString(),
       name: '새 메뉴',
@@ -220,6 +254,7 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
       accessLevel: 'all',
       hasAdmin: false,
       expanded: false,
+      division: division,
       children: []
     }
 
