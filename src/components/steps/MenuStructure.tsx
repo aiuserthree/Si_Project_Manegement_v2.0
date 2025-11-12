@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -6,6 +6,7 @@ import { Label } from '../ui/label'
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group'
 import { Switch } from '../ui/switch'
 import { Badge } from '../ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { ChevronRight, ChevronDown, Folder, Plus, Trash2, Download, Save } from 'lucide-react'
 
 interface MenuNode {
@@ -19,6 +20,7 @@ interface MenuNode {
   screenName: string
   accessLevel: 'all' | 'login'
   hasAdmin: boolean
+  division?: 'FO' | 'BO'
   expanded?: boolean
   children?: MenuNode[]
 }
@@ -131,10 +133,50 @@ interface MenuStructureProps {
   onNextStep?: () => void
 }
 
+// division 자동 판단 함수
+const inferDivision = (node: MenuNode): 'FO' | 'BO' => {
+  // 이미 division이 설정되어 있으면 그대로 사용
+  if (node.division) {
+    return node.division
+  }
+  
+  // screenName이나 depth1을 기반으로 판단
+  const screenName = node.screenName.toLowerCase()
+  const depth1 = node.depth1.toLowerCase()
+  
+  // BO 판단 기준: admin, 관리, 설정, 시스템 등
+  if (screenName.includes('/admin') || 
+      screenName.includes('admin') ||
+      depth1.includes('관리') ||
+      depth1.includes('설정') ||
+      depth1.includes('시스템') ||
+      node.hasAdmin) {
+    return 'BO'
+  }
+  
+  // 기본값은 FO
+  return 'FO'
+}
+
+// 메뉴 노드의 division 자동 설정
+const setDivisionForNodes = (nodes: MenuNode[]): MenuNode[] => {
+  return nodes.map(node => {
+    const division = inferDivision(node)
+    const updatedNode = { ...node, division }
+    
+    if (node.children && node.children.length > 0) {
+      updatedNode.children = setDivisionForNodes(node.children)
+    }
+    
+    return updatedNode
+  })
+}
+
 export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
-  const [menuData, setMenuData] = useState<MenuNode[]>(mockMenuData)
+  const [menuData, setMenuData] = useState<MenuNode[]>(setDivisionForNodes(mockMenuData))
   const [selectedNode, setSelectedNode] = useState<MenuNode | null>(null)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [activeTab, setActiveTab] = useState<'all' | 'FO' | 'BO'>('all')
 
   const toggleNode = (nodeId: string) => {
     const updateNodes = (nodes: MenuNode[]): MenuNode[] => {
@@ -225,9 +267,28 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
   const saveNode = () => {
     if (selectedNode) {
       console.log('메뉴 저장:', selectedNode)
+      // localStorage에 메뉴 구조 데이터 저장
+      const exportData = {
+        menuStructure: menuData,
+        exportDate: new Date().toISOString(),
+        totalMenus: menuData.length
+      }
+      localStorage.setItem('menuStructure', JSON.stringify(exportData))
       alert('메뉴가 저장되었습니다.')
     }
   }
+  
+  // 컴포넌트 마운트 시 또는 menuData 변경 시 localStorage에 저장
+  useEffect(() => {
+    if (menuData.length > 0) {
+      const exportData = {
+        menuStructure: menuData,
+        exportDate: new Date().toISOString(),
+        totalMenus: menuData.length
+      }
+      localStorage.setItem('menuStructure', JSON.stringify(exportData))
+    }
+  }, [menuData])
 
   const exportMenuStructure = () => {
     const exportData = {
@@ -328,13 +389,17 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
   const generateTreePreview = (nodes: MenuNode[]) => {
     const generateNode = (node: MenuNode, level: number = 0) => {
       const indent = level * 20 // 20px per level
+      const division = inferDivision(node)
       
       return (
         <div key={node.id} className="flex items-center mb-2" style={{ marginLeft: `${indent}px` }}>
           <div className="flex items-center space-x-2">
             <Folder className="w-4 h-4 text-blue-500" />
             <span className="font-medium">{node.name}</span>
-            <Badge variant="secondary" className="text-xs">{node.screenName}</Badge>
+            <Badge variant={division === 'FO' ? 'default' : 'secondary'} className="text-xs">
+              {division}
+            </Badge>
+            <Badge variant="outline" className="text-xs">{node.screenName}</Badge>
           </div>
           {node.children && node.children.length > 0 && (
             <div className="ml-4">
@@ -348,12 +413,58 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
     return nodes.map(node => generateNode(node))
   }
 
+  // division별 메뉴 필터링
+  const filterMenuByDivision = (nodes: MenuNode[], division: 'all' | 'FO' | 'BO'): MenuNode[] => {
+    if (division === 'all') {
+      return nodes
+    }
+    
+    const filterNodes = (nodeList: MenuNode[]): MenuNode[] => {
+      return nodeList
+        .map(node => {
+          const nodeDivision = inferDivision(node)
+          if (nodeDivision === division) {
+            const filteredNode = { ...node }
+            if (node.children && node.children.length > 0) {
+              filteredNode.children = filterNodes(node.children)
+            }
+            return filteredNode
+          } else {
+            // 현재 노드는 division이 맞지 않지만, 자식 노드 중에 맞는 것이 있을 수 있음
+            if (node.children && node.children.length > 0) {
+              const filteredChildren = filterNodes(node.children)
+              if (filteredChildren.length > 0) {
+                return { ...node, children: filteredChildren }
+              }
+            }
+            return null
+          }
+        })
+        .filter((node): node is MenuNode => node !== null)
+    }
+    
+    return filterNodes(nodes)
+  }
+
+  const filteredMenuData = filterMenuByDivision(menuData, activeTab)
+
   const updateSelectedNode = (field: keyof MenuNode, value: any) => {
     if (selectedNode) {
       setSelectedNode(prev => ({ ...prev!, [field]: value }))
-      setMenuData(prev => prev.map(node => 
-        node.id === selectedNode.id ? { ...node, [field]: value } : node
-      ))
+      setMenuData(prev => {
+        const updateNodes = (nodes: MenuNode[]): MenuNode[] => {
+          return nodes.map(node => {
+            if (node.id === selectedNode.id) {
+              return { ...node, [field]: value }
+            }
+            if (node.children) {
+              return { ...node, children: updateNodes(node.children) }
+            }
+            return node
+          })
+        }
+        return updateNodes(prev)
+      })
     }
   }
 
@@ -391,9 +502,18 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-1 max-h-96 overflow-y-auto">
-                {menuData.map(node => renderTreeNode(node))}
-              </div>
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'FO' | 'BO')} className="w-full">
+                <TabsList className="grid w-full grid-cols-3 mb-4">
+                  <TabsTrigger value="all">전체</TabsTrigger>
+                  <TabsTrigger value="FO">FO</TabsTrigger>
+                  <TabsTrigger value="BO">BO</TabsTrigger>
+                </TabsList>
+                <TabsContent value={activeTab} className="mt-0">
+                  <div className="space-y-1 max-h-96 overflow-y-auto">
+                    {filteredMenuData.map(node => renderTreeNode(node))}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </div>
@@ -457,6 +577,23 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
                         className="bg-gray-50"
                       />
                     </div>
+                    <div>
+                      <Label htmlFor="division">구분</Label>
+                      <RadioGroup 
+                        value={inferDivision(selectedNode)}
+                        onValueChange={(value) => updateSelectedNode('division', value)}
+                        className="mt-2"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="FO" id="division-fo" />
+                          <Label htmlFor="division-fo">FO</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="BO" id="division-bo" />
+                          <Label htmlFor="division-bo">BO</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
                   </div>
 
                   <div>
@@ -519,11 +656,20 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
           <CardTitle>시각적 트리 미리보기</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto pb-4">
-            <div className="min-w-full">
-              {generateTreePreview(menuData)}
-            </div>
-          </div>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'FO' | 'BO')} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsTrigger value="all">전체</TabsTrigger>
+              <TabsTrigger value="FO">FO</TabsTrigger>
+              <TabsTrigger value="BO">BO</TabsTrigger>
+            </TabsList>
+            <TabsContent value={activeTab} className="mt-0">
+              <div className="overflow-x-auto pb-4">
+                <div className="min-w-full">
+                  {generateTreePreview(filteredMenuData)}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
