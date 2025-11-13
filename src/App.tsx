@@ -139,9 +139,9 @@ export default function App() {
   const renderWorkflowContent = () => {
     switch (currentStep) {
       case 1:
-        return <FileUpload onSave={handleSave} onNextStep={handleNextStep} />
-      case 2:
         return <Questionnaire onSave={handleSave} onNextStep={handleNextStep} />
+      case 2:
+        return <FileUpload onSave={handleSave} onNextStep={handleNextStep} />
       case 3:
         return <RequirementsDefinition onSave={handleSave} onNextStep={handleNextStep} />
       case 4:
@@ -159,7 +159,7 @@ export default function App() {
       case 10:
         return <DevelopmentGuide onSave={handleSave} onNextStep={handleNextStep} />
       default:
-        return <FileUpload onSave={handleSave} onNextStep={handleNextStep} />
+        return <Questionnaire onSave={handleSave} onNextStep={handleNextStep} />
     }
   }
 

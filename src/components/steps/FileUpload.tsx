@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Upload, File, X, FileText, Image, FileSpreadsheet, FileImage, Brain, Eye, Download, RefreshCw, AlertCircle, Save } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
@@ -37,6 +37,34 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
   const [analysisComplete, setAnalysisComplete] = useState(false)
   const [projectSummary, setProjectSummary] = useState<string>('')
   const [error, setError] = useState<string>('')
+
+  // localStorage에서 저장된 분석 결과 복원 (저장 및 다음단계 버튼을 눌렀을 때만 저장된 데이터)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('fileAnalysisResults')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.files && data.files.length > 0) {
+          // 저장된 분석 결과를 파일 상태로 복원
+          const restoredFiles: FileItem[] = data.files.map((fileData: any) => ({
+            id: Math.random().toString(36).substr(2, 9),
+            name: fileData.fileName,
+            size: 0, // 저장된 데이터에는 size 정보가 없을 수 있음
+            type: fileData.fileType,
+            progress: 100,
+            status: 'analyzed' as const,
+            analysis: fileData.analysis,
+            parsedContent: fileData.metadata ? { text: '', metadata: fileData.metadata } : undefined
+          }))
+          setFiles(restoredFiles)
+          setAnalysisComplete(true)
+          setProjectSummary(data.projectSummary || '')
+        }
+      }
+    } catch (error) {
+      console.error('분석 결과 복원 오류:', error)
+    }
+  }, [])
 
   const getFileIcon = (type: string) => {
     if (type.includes('sheet') || type.includes('excel')) {
@@ -252,6 +280,28 @@ export function FileUpload({ onSave, onNextStep }: FileUploadProps) {
   }
 
   const handleSaveClick = () => {
+    // 분석 결과를 localStorage에 저장 (요구사항 정의서에서 사용)
+    // "저장 및 다음단계" 버튼을 눌렀을 때만 저장
+    const analyzedFiles = files.filter(f => f.status === 'analyzed' && f.analysis)
+    if (analyzedFiles.length > 0) {
+      const analysisData = {
+        projectSummary,
+        files: analyzedFiles.map(file => ({
+          fileName: file.name,
+          fileType: file.type,
+          analysis: file.analysis,
+          metadata: file.parsedContent?.metadata
+        })),
+        savedAt: new Date().toISOString(),
+        shouldAutoUpdate: true // 요구사항 정의서에 자동 반영 플래그
+      }
+      localStorage.setItem('fileAnalysisResults', JSON.stringify(analysisData))
+      console.log('분석 결과가 localStorage에 저장되었습니다. (저장 및 다음단계 버튼 클릭)')
+    } else {
+      alert('분석된 파일이 없습니다. 먼저 파일을 분석해주세요.')
+      return
+    }
+    
     // 저장 로직 실행
     onSave?.()
     // 다음 단계로 이동

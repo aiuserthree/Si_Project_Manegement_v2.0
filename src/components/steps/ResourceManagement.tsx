@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -89,6 +89,36 @@ export function ResourceManagement({ onSave, onNextStep }: ResourceManagementPro
     skills: []
   })
   const [assignedResources, setAssignedResources] = useState<Resource[]>([])
+
+  // localStorage에서 인력관리 데이터 복원
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('resourceManagementData')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.resources && data.resources.length > 0) {
+          setResources(data.resources)
+        }
+        if (data.assignedResources && data.assignedResources.length > 0) {
+          setAssignedResources(data.assignedResources)
+        }
+      }
+    } catch (error) {
+      console.error('인력관리 데이터 복원 오류:', error)
+    }
+  }, [])
+
+  // resources와 assignedResources 상태 변경 시 localStorage에 저장
+  useEffect(() => {
+    if (resources.length > 0 || assignedResources.length > 0) {
+      const resourceData = {
+        resources,
+        assignedResources,
+        savedAt: new Date().toISOString()
+      }
+      localStorage.setItem('resourceManagementData', JSON.stringify(resourceData))
+    }
+  }, [resources, assignedResources])
 
   const handleAddResource = () => {
     setIsEditMode(false)
@@ -475,6 +505,15 @@ export function ResourceManagement({ onSave, onNextStep }: ResourceManagementPro
       <div className="flex justify-end mt-6">
         <Button
           onClick={() => {
+            // 인력관리 데이터를 localStorage에 저장
+            const resourceData = {
+              resources,
+              assignedResources,
+              savedAt: new Date().toISOString()
+            }
+            localStorage.setItem('resourceManagementData', JSON.stringify(resourceData))
+            console.log('인력관리 데이터가 localStorage에 저장되었습니다.')
+            
             onSave?.()
             onNextStep?.()
           }}

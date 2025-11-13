@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -1403,6 +1403,1072 @@ export function DevelopmentGuide({ onSave, onNextStep }: DevelopmentGuideProps) 
   const [searchTerm, setSearchTerm] = useState('')
   const [iaCodeFilter, setIACodeFilter] = useState('all')
 
+  // 요구사항에서 코드 템플릿 생성
+  const generateCodeTemplateFromRequirements = (content: string): string => {
+    if (!content || content.trim().length === 0) {
+      return `// 요구사항 기반 컴포넌트 템플릿
+import React from 'react';
+
+interface Props {
+  // 요구사항에 따라 props 정의
+}
+
+export const Component: React.FC<Props> = () => {
+  return (
+    <div>
+      {/* 요구사항 명세서 내용을 기반으로 구현 */}
+    </div>
+  );
+};`
+    }
+
+    // 요구사항에서 컴포넌트 이름, 기능 추출
+    const lines = content.split('\n')
+    const componentNames: string[] = []
+    const features: string[] = []
+    const props: string[] = []
+    
+    // 요구사항 ID 패턴 찾기 (REQ-XXX)
+    const reqPattern = /REQ-\d+/g
+    const reqIds = content.match(reqPattern) || []
+    
+    // 컴포넌트/화면 이름 추출
+    const screenPattern = /(?:화면명|컴포넌트명|기능명)[:：]\s*([^\n]+)/gi
+    const screenMatches = content.match(screenPattern)
+    if (screenMatches) {
+      screenMatches.forEach(match => {
+        const name = match.split(/[:：]/)[1]?.trim()
+        if (name) componentNames.push(name)
+      })
+    }
+    
+    // 기능 설명 추출
+    const featurePattern = /(?:기능|요구사항)[:：]\s*([^\n]+)/gi
+    const featureMatches = content.match(featurePattern)
+    if (featureMatches) {
+      featureMatches.forEach(match => {
+        const feature = match.split(/[:：]/)[1]?.trim()
+        if (feature && feature.length > 5) features.push(feature)
+      })
+    }
+    
+    // 입력 필드 추출
+    const inputPattern = /(?:입력|필드|파라미터)[:：]\s*([^\n]+)/gi
+    const inputMatches = content.match(inputPattern)
+    if (inputMatches) {
+      inputMatches.forEach(match => {
+        const input = match.split(/[:：]/)[1]?.trim()
+        if (input) props.push(input)
+      })
+    }
+    
+    const componentName = componentNames[0] || 'Component'
+    const sanitizedName = componentName.replace(/[^a-zA-Z0-9]/g, '')
+    const camelCaseName = sanitizedName.charAt(0).toUpperCase() + sanitizedName.slice(1)
+    
+    // Props 인터페이스 생성
+    let propsInterface = 'interface Props {\n'
+    if (props.length > 0) {
+      props.slice(0, 5).forEach((prop, idx) => {
+        const propName = prop.split(/[:\s]/)[0]?.replace(/[^a-zA-Z0-9]/g, '') || `prop${idx + 1}`
+        propsInterface += `  ${propName}: string;\n`
+      })
+    } else {
+      propsInterface += '  // props 정의\n'
+    }
+    propsInterface += '}'
+    
+    // 기능 구현 부분
+    let implementation = ''
+    if (features.length > 0) {
+      features.slice(0, 3).forEach((feature, idx) => {
+        implementation += `      {/* ${feature} */}\n`
+        if (feature.includes('조회') || feature.includes('검색')) {
+          implementation += `      <div className="search-section">\n        {/* 검색 기능 구현 */}\n      </div>\n`
+        } else if (feature.includes('입력') || feature.includes('등록')) {
+          implementation += `      <form className="input-form">\n        {/* 입력 폼 구현 */}\n      </form>\n`
+        } else if (feature.includes('수정') || feature.includes('변경')) {
+          implementation += `      <div className="edit-section">\n        {/* 수정 기능 구현 */}\n      </div>\n`
+        }
+      })
+    } else {
+      implementation = '      {/* 요구사항 명세서 내용을 기반으로 구현 */}\n'
+    }
+    
+    return `// ${componentName} 컴포넌트
+// 요구사항: ${reqIds.slice(0, 3).join(', ') || 'N/A'}
+import React, { useState, useEffect } from 'react';
+
+${propsInterface}
+
+export const ${camelCaseName}: React.FC<Props> = (props) => {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // 컴포넌트 마운트 시 초기화
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      // API 호출 또는 데이터 로드 로직
+      // const response = await fetch('/api/data');
+      // const result = await response.json();
+      // setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '데이터 로드 실패');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // 폼 제출 로직
+  };
+
+  if (loading) {
+    return <div className="loading">로딩 중...</div>;
+  }
+
+  if (error) {
+    return <div className="error">오류: {error}</div>;
+  }
+
+  return (
+    <div className="${sanitizedName.toLowerCase()}-container">
+      <h2>{componentName}</h2>
+${implementation}
+    </div>
+  );
+};
+
+export default ${camelCaseName};`
+  }
+
+  // 요구사항에서 테스트 시나리오 생성
+  const generateTestScenarioFromRequirements = (content: string): string => {
+    if (!content || content.trim().length === 0) {
+      return `// 요구사항 기반 테스트 시나리오
+describe('Component Tests', () => {
+  test('요구사항을 만족하는지 확인', () => {
+    // 테스트 구현
+  });
+});`
+    }
+
+    // 요구사항 ID 추출
+    const reqPattern = /REQ-\d+/g
+    const reqIds = content.match(reqPattern) || []
+    
+    // 기능 추출
+    const featurePattern = /(?:기능|요구사항)[:：]\s*([^\n]+)/gi
+    const features: string[] = []
+    const featureMatches = content.match(featurePattern)
+    if (featureMatches) {
+      featureMatches.forEach(match => {
+        const feature = match.split(/[:：]/)[1]?.trim()
+        if (feature && feature.length > 5) features.push(feature)
+      })
+    }
+    
+    const componentName = 'Component'
+    let testCases = ''
+    
+    if (features.length > 0) {
+      features.slice(0, 5).forEach((feature, idx) => {
+        testCases += `  test('${feature} 기능 테스트', () => {
+    // Given: 초기 상태 설정
+    // When: ${feature} 동작 수행
+    // Then: 예상 결과 검증
+    expect(true).toBe(true);
+  });\n\n`
+      })
+    } else {
+      testCases = `  test('기본 기능 테스트', () => {
+    expect(true).toBe(true);
+  });\n\n`
+    }
+    
+    return `// ${reqIds.slice(0, 3).join(', ') || '요구사항'} 기반 테스트 시나리오
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { ${componentName} } from './${componentName}';
+
+describe('${componentName} Tests', () => {
+  beforeEach(() => {
+    // 각 테스트 전 초기화
+  });
+
+${testCases}  test('컴포넌트 렌더링 테스트', () => {
+    const { container } = render(<${componentName} />);
+    expect(container).toBeInTheDocument();
+  });
+
+  test('에러 처리 테스트', () => {
+    // 에러 상황 시뮬레이션 및 처리 검증
+  });
+});`
+  }
+
+  // 설계서에서 코드 템플릿 생성
+  const generateCodeTemplateFromDesign = (content: string): string => {
+    if (!content || content.trim().length === 0) {
+      return `// 시스템 설계서 기반 아키텍처 구현
+// 설계서 내용을 기반으로 구조화된 코드 생성`
+    }
+
+    // 아키텍처 패턴 추출
+    const architecturePatterns: string[] = []
+    if (content.includes('MVC') || content.includes('mvc')) architecturePatterns.push('MVC')
+    if (content.includes('MVVM') || content.includes('mvvm')) architecturePatterns.push('MVVM')
+    if (content.includes('레이어') || content.includes('Layer')) architecturePatterns.push('Layered')
+    if (content.includes('마이크로서비스') || content.includes('Microservice')) architecturePatterns.push('Microservice')
+    
+    // 기술 스택 추출
+    const techStack: string[] = []
+    if (content.includes('React') || content.includes('react')) techStack.push('React')
+    if (content.includes('TypeScript') || content.includes('typescript')) techStack.push('TypeScript')
+    if (content.includes('Node') || content.includes('node')) techStack.push('Node.js')
+    if (content.includes('Express') || content.includes('express')) techStack.push('Express')
+    
+    // 모듈/서비스 추출
+    const modulePattern = /(?:모듈|서비스|컴포넌트)[:：]\s*([^\n]+)/gi
+    const modules: string[] = []
+    const moduleMatches = content.match(modulePattern)
+    if (moduleMatches) {
+      moduleMatches.forEach(match => {
+        const module = match.split(/[:：]/)[1]?.trim()
+        if (module) modules.push(module)
+      })
+    }
+    
+    const pattern = architecturePatterns[0] || 'Layered'
+    const modulesList = modules.slice(0, 5).join(', ') || 'UserService, DataService'
+    
+    return `// 시스템 설계서 기반 아키텍처 구현
+// 아키텍처 패턴: ${pattern}
+// 기술 스택: ${techStack.join(', ') || 'React, TypeScript'}
+
+// 1. 서비스 레이어 구조
+export interface IService {
+  execute(): Promise<any>;
+}
+
+// 2. 서비스 구현 예시
+export class BaseService implements IService {
+  protected apiClient: any;
+  
+  constructor(apiClient: any) {
+    this.apiClient = apiClient;
+  }
+  
+  async execute(): Promise<any> {
+    throw new Error('execute() must be implemented');
+  }
+}
+
+// 3. 구체적인 서비스 구현
+export class UserService extends BaseService {
+  async getUserById(id: string): Promise<any> {
+    try {
+      const response = await this.apiClient.get(\`/users/\${id}\`);
+      return response.data;
+    } catch (error) {
+      console.error('사용자 조회 실패:', error);
+      throw error;
+    }
+  }
+  
+  async createUser(userData: any): Promise<any> {
+    try {
+      const response = await this.apiClient.post('/users', userData);
+      return response.data;
+    } catch (error) {
+      console.error('사용자 생성 실패:', error);
+      throw error;
+    }
+  }
+}
+
+// 4. API 클라이언트 설정
+import axios from 'axios';
+
+const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// 요청 인터셉터
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = \`Bearer \${token}\`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// 응답 인터셉터
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // 인증 오류 처리
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// 5. 서비스 팩토리
+export class ServiceFactory {
+  private static services: Map<string, IService> = new Map();
+  
+  static getService(serviceName: string): IService {
+    if (!this.services.has(serviceName)) {
+      switch (serviceName) {
+        case 'UserService':
+          this.services.set(serviceName, new UserService(apiClient));
+          break;
+        default:
+          throw new Error(\`Unknown service: \${serviceName}\`);
+      }
+    }
+    return this.services.get(serviceName)!;
+  }
+}
+
+// 6. 사용 예시
+// const userService = ServiceFactory.getService('UserService');
+// const user = await userService.getUserById('123');`
+  }
+
+  // API 명세서에서 코드 템플릿 생성
+  const generateCodeTemplateFromAPI = (content: string): string => {
+    if (!content || content.trim().length === 0) {
+      return `// API 명세서 기반 API 클라이언트
+import axios from 'axios';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
+export const apiClient = {
+  // API 명세서 내용을 기반으로 API 메서드 구현
+};`
+    }
+
+    // API 엔드포인트 추출
+    const endpointPattern = /(?:엔드포인트|endpoint|URL|경로)[:：]\s*([^\n]+)/gi
+    const endpoints: Array<{path: string, method?: string}> = []
+    const endpointMatches = content.match(endpointPattern)
+    if (endpointMatches) {
+      endpointMatches.forEach(match => {
+        const endpoint = match.split(/[:：]/)[1]?.trim()
+        if (endpoint) {
+          const method = endpoint.match(/(GET|POST|PUT|DELETE|PATCH)/i)?.[0]?.toUpperCase()
+          const path = endpoint.replace(/(GET|POST|PUT|DELETE|PATCH)\s*/i, '').trim()
+          endpoints.push({ path, method: method || 'GET' })
+        }
+      })
+    }
+    
+    // API 경로 패턴 찾기 (/api/...)
+    const pathPattern = /\/api\/[^\s\n\)]+/gi
+    const pathMatches = content.match(pathPattern)
+    if (pathMatches) {
+      pathMatches.forEach(path => {
+        if (!endpoints.some(e => e.path === path)) {
+          endpoints.push({ path, method: 'GET' })
+        }
+      })
+    }
+    
+    // 파라미터 추출
+    const paramPattern = /(?:파라미터|parameter|요청|request)[:：]\s*([^\n]+)/gi
+    const params: string[] = []
+    const paramMatches = content.match(paramPattern)
+    if (paramMatches) {
+      paramMatches.forEach(match => {
+        const param = match.split(/[:：]/)[1]?.trim()
+        if (param) params.push(param)
+      })
+    }
+    
+    // API 메서드 생성
+    let apiMethods = ''
+    if (endpoints.length > 0) {
+      endpoints.slice(0, 10).forEach((endpoint, idx) => {
+        const methodName = endpoint.path
+          .replace(/\/api\//, '')
+          .replace(/[^a-zA-Z0-9]/g, '_')
+          .replace(/_+/g, '_')
+          .replace(/^_|_$/g, '')
+          .split('_')
+          .map((word, i) => i === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1))
+          .join('') || `api${idx + 1}`
+        
+        const httpMethod = endpoint.method || 'GET'
+        const isGet = httpMethod === 'GET'
+        const pathParams = endpoint.path.match(/:\w+|\{\w+\}/g) || []
+        
+        let methodParams = ''
+        let requestBody = ''
+        
+        if (pathParams.length > 0) {
+          pathParams.forEach((param, pIdx) => {
+            const paramName = param.replace(/[:{}]/g, '')
+            methodParams += `${pIdx > 0 ? ', ' : ''}${paramName}: string`
+          })
+        }
+        
+        if (!isGet && params.length > 0) {
+          methodParams += methodParams ? ', ' : ''
+          methodParams += 'data: any'
+          requestBody = ',\n      data'
+        }
+        
+        apiMethods += `  // ${endpoint.path}\n`
+        apiMethods += `  ${methodName}: async (${methodParams}): Promise<any> => {\n`
+        apiMethods += `    try {\n`
+        apiMethods += `      const response = await axios.${httpMethod.toLowerCase()}(\n`
+        
+        // 경로 파라미터 치환
+        let finalPath = endpoint.path
+        pathParams.forEach(param => {
+          const paramName = param.replace(/[:{}]/g, '')
+          finalPath = finalPath.replace(param, `\${${paramName}}`)
+        })
+        
+        apiMethods += `        \`${finalPath}\`${requestBody}\n`
+        apiMethods += `      );\n`
+        apiMethods += `      return response.data;\n`
+        apiMethods += `    } catch (error) {\n`
+        apiMethods += `      console.error('${methodName} API 호출 실패:', error);\n`
+        apiMethods += `      throw error;\n`
+        apiMethods += `    }\n`
+        apiMethods += `  },\n\n`
+      })
+    } else {
+      apiMethods = `  // API 메서드 예시
+  getData: async (): Promise<any> => {
+    try {
+      const response = await axios.get('/api/data');
+      return response.data;
+    } catch (error) {
+      console.error('API 호출 실패:', error);
+      throw error;
+    }
+  },\n\n`
+    }
+    
+    return `// API 명세서 기반 API 클라이언트
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+
+// API 클라이언트 설정
+const createApiClient = (): AxiosInstance => {
+  const client = axios.create({
+    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
+    timeout: 10000,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  // 요청 인터셉터
+  client.interceptors.request.use(
+    (config) => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = \`Bearer \${token}\`;
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+
+  // 응답 인터셉터
+  client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    }
+  );
+
+  return client;
+};
+
+const apiClient = createApiClient();
+
+// API 메서드 정의
+export const apiService = {
+${apiMethods}};
+
+// 타입 정의
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data: T;
+  message?: string;
+  error?: string;
+}
+
+// 사용 예시
+// import { apiService } from './apiService';
+// const data = await apiService.getData();`
+  }
+
+  // API 명세서에서 테스트 시나리오 생성
+  const generateTestScenarioFromAPI = (content: string): string => {
+    if (!content || content.trim().length === 0) {
+      return `// API 테스트 시나리오
+describe('API Tests', () => {
+  test('API 엔드포인트 테스트', () => {
+    // API 테스트 구현
+  });
+});`
+    }
+
+    // API 엔드포인트 추출
+    const endpointPattern = /(?:엔드포인트|endpoint|URL|경로)[:：]\s*([^\n]+)/gi
+    const endpoints: string[] = []
+    const endpointMatches = content.match(endpointPattern)
+    if (endpointMatches) {
+      endpointMatches.forEach(match => {
+        const endpoint = match.split(/[:：]/)[1]?.trim()
+        if (endpoint) endpoints.push(endpoint)
+      })
+    }
+    
+    // 경로 패턴 찾기
+    const pathPattern = /\/api\/[^\s\n\)]+/gi
+    const pathMatches = content.match(pathPattern)
+    if (pathMatches) {
+      pathMatches.forEach(path => {
+        if (!endpoints.includes(path)) endpoints.push(path)
+      })
+    }
+    
+    let testCases = ''
+    if (endpoints.length > 0) {
+      endpoints.slice(0, 5).forEach((endpoint, idx) => {
+        const testName = endpoint.replace(/\/api\//, '').replace(/[^a-zA-Z0-9]/g, '_') || `endpoint${idx + 1}`
+        testCases += `  test('${endpoint} 엔드포인트 테스트', async () => {
+    const response = await apiService.${testName}();
+    expect(response).toBeDefined();
+    expect(response.success).toBe(true);
+  });\n\n`
+      })
+    } else {
+      testCases = `  test('API 엔드포인트 테스트', async () => {
+    const response = await apiService.getData();
+    expect(response).toBeDefined();
+  });\n\n`
+    }
+    
+    return `// API 테스트 시나리오
+import { apiService } from './apiService';
+import axios from 'axios';
+
+// axios 모킹
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+describe('API Service Tests', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+${testCases}  test('에러 처리 테스트', async () => {
+    mockedAxios.get.mockRejectedValueOnce(new Error('Network Error'));
+    
+    await expect(apiService.getData()).rejects.toThrow();
+  });
+
+  test('인증 토큰 포함 테스트', async () => {
+    localStorage.setItem('token', 'test-token');
+    mockedAxios.get.mockResolvedValueOnce({ data: { success: true } });
+    
+    await apiService.getData();
+    
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-token'
+        })
+      })
+    );
+  });
+});`
+  }
+
+  // 데이터베이스 설계서에서 코드 템플릿 생성
+  const generateCodeTemplateFromDatabase = (content: string): string => {
+    if (!content || content.trim().length === 0) {
+      return `// 데이터베이스 스키마 및 모델
+// 데이터베이스 설계서 내용을 기반으로 모델 정의`
+    }
+
+    // 테이블 이름 추출
+    const tablePattern = /(?:테이블|table|TABLE)[:：]\s*([^\n]+)/gi
+    const tables: string[] = []
+    const tableMatches = content.match(tablePattern)
+    if (tableMatches) {
+      tableMatches.forEach(match => {
+        const table = match.split(/[:：]/)[1]?.trim()
+        if (table) tables.push(table)
+      })
+    }
+    
+    // CREATE TABLE 문 찾기
+    const createTablePattern = /CREATE\s+TABLE\s+(\w+)/gi
+    const createMatches = content.match(createTablePattern)
+    if (createMatches) {
+      createMatches.forEach(match => {
+        const tableName = match.replace(/CREATE\s+TABLE\s+/i, '').trim()
+        if (tableName && !tables.includes(tableName)) tables.push(tableName)
+      })
+    }
+    
+    // 필드 추출
+    const fieldPattern = /(?:필드|컬럼|column|field)[:：]\s*([^\n]+)/gi
+    const fields: Array<{name: string, type?: string}> = []
+    const fieldMatches = content.match(fieldPattern)
+    if (fieldMatches) {
+      fieldMatches.forEach(match => {
+        const field = match.split(/[:：]/)[1]?.trim()
+        if (field) {
+          const parts = field.split(/\s+/)
+          const name = parts[0]
+          const type = parts[1] || 'string'
+          fields.push({ name, type })
+        }
+      })
+    }
+    
+    // 모델 생성
+    let models = ''
+    if (tables.length > 0) {
+      tables.slice(0, 5).forEach((table, idx) => {
+        const modelName = table.charAt(0).toUpperCase() + table.slice(1).replace(/[^a-zA-Z0-9]/g, '')
+        const tableFields = fields.slice(idx * 5, (idx + 1) * 5)
+        
+        models += `// ${table} 테이블 모델
+export interface ${modelName}Model {
+${tableFields.length > 0 ? tableFields.map(f => {
+  const fieldName = f.name.replace(/[^a-zA-Z0-9]/g, '')
+  const fieldType = f.type?.includes('int') ? 'number' : 
+                   f.type?.includes('date') ? 'Date' : 
+                   f.type?.includes('bool') ? 'boolean' : 'string'
+  return `  ${fieldName}: ${fieldType};`
+}).join('\n') : '  id: number;\n  createdAt: Date;\n  updatedAt: Date;'}
+}
+
+// ${table} 테이블 스키마 정의
+export const ${modelName}Schema = {
+  tableName: '${table}',
+  columns: {
+${tableFields.length > 0 ? tableFields.map(f => {
+  const fieldName = f.name.replace(/[^a-zA-Z0-9]/g, '')
+  return `    ${fieldName}: { type: '${f.type || 'VARCHAR'}', required: true },`
+}).join('\n') : '    id: { type: \'INTEGER\', primaryKey: true, autoIncrement: true },\n    createdAt: { type: \'TIMESTAMP\', defaultValue: \'CURRENT_TIMESTAMP\' },'}
+  }
+};
+
+// ${modelName} Repository
+export class ${modelName}Repository {
+  async findAll(): Promise<${modelName}Model[]> {
+    // SELECT * FROM ${table}
+    return [];
+  }
+  
+  async findById(id: number): Promise<${modelName}Model | null> {
+    // SELECT * FROM ${table} WHERE id = ?
+    return null;
+  }
+  
+  async create(data: Partial<${modelName}Model>): Promise<${modelName}Model> {
+    // INSERT INTO ${table} ...
+    return data as ${modelName}Model;
+  }
+  
+  async update(id: number, data: Partial<${modelName}Model>): Promise<${modelName}Model | null> {
+    // UPDATE ${table} SET ... WHERE id = ?
+    return null;
+  }
+  
+  async delete(id: number): Promise<boolean> {
+    // DELETE FROM ${table} WHERE id = ?
+    return false;
+  }
+}
+
+`
+      })
+    } else {
+      models = `// 데이터베이스 모델 예시
+export interface BaseModel {
+  id: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Repository 패턴
+export class BaseRepository<T extends BaseModel> {
+  protected tableName: string;
+  
+  constructor(tableName: string) {
+    this.tableName = tableName;
+  }
+  
+  async findAll(): Promise<T[]> {
+    // SELECT * FROM \${this.tableName}
+    return [];
+  }
+  
+  async findById(id: number): Promise<T | null> {
+    // SELECT * FROM \${this.tableName} WHERE id = ?
+    return null;
+  }
+}
+`
+    }
+    
+    return `// 데이터베이스 스키마 및 모델
+// 데이터베이스 설계서 내용을 기반으로 모델 정의
+
+${models}
+// 데이터베이스 연결 설정
+import { Pool, QueryResult } from 'pg';
+
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME || 'mydb',
+  user: process.env.DB_USER || 'user',
+  password: process.env.DB_PASSWORD || 'password',
+});
+
+// 쿼리 헬퍼 함수
+export const query = async <T = any>(
+  text: string,
+  params?: any[]
+): Promise<QueryResult<T>> => {
+  const start = Date.now();
+  try {
+    const res = await pool.query<T>(text, params);
+    const duration = Date.now() - start;
+    console.log('Executed query', { text, duration, rows: res.rowCount });
+    return res;
+  } catch (error) {
+    console.error('Query error', { text, error });
+    throw error;
+  }
+};
+
+// 트랜잭션 헬퍼
+export const transaction = async <T>(
+  callback: (client: any) => Promise<T>
+): Promise<T> => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};`
+  }
+
+  // 문서 편집 데이터를 기반으로 개발가이드 생성
+  const generateGuideFromDocuments = (documents: any[]): GuideSection[] => {
+    const guideSections: GuideSection[] = []
+    
+    // 요구사항 명세서 기반 가이드
+    const requirementDoc = documents.find((doc: any) => doc.id === '1' || doc.name.includes('요구사항'))
+    if (requirementDoc) {
+      guideSections.push({
+        id: 'requirements',
+        title: '요구사항 기반 개발 가이드',
+        icon: FileText,
+        progress: 0,
+        expanded: true,
+        subsections: [{
+          id: 'req-1',
+          title: '요구사항 명세서',
+          content: requirementDoc.content || '',
+          codeTemplate: generateCodeTemplateFromRequirements(requirementDoc.content),
+          testScenario: generateTestScenarioFromRequirements(requirementDoc.content),
+          requirements: [],
+          implemented: false
+        }]
+      })
+    }
+    
+    // 시스템 설계서 기반 가이드
+    const designDoc = documents.find((doc: any) => doc.id === '2' || doc.name.includes('시스템 설계'))
+    if (designDoc) {
+      guideSections.push({
+        id: 'design',
+        title: '시스템 설계 가이드',
+        icon: Settings,
+        progress: 0,
+        expanded: true,
+        subsections: [{
+          id: 'design-1',
+          title: '시스템 아키텍처',
+          content: designDoc.content || '',
+          codeTemplate: generateCodeTemplateFromDesign(designDoc.content),
+          testScenario: '',
+          requirements: [],
+          implemented: false
+        }]
+      })
+    }
+    
+    // API 명세서 기반 가이드
+    const apiDoc = documents.find((doc: any) => doc.id === '3' || doc.name.includes('API'))
+    if (apiDoc) {
+      guideSections.push({
+        id: 'api',
+        title: 'API 개발 가이드',
+        icon: Code,
+        progress: 0,
+        expanded: true,
+        subsections: [{
+          id: 'api-1',
+          title: 'API 명세서',
+          content: apiDoc.content || '',
+          codeTemplate: generateCodeTemplateFromAPI(apiDoc.content),
+          testScenario: generateTestScenarioFromAPI(apiDoc.content),
+          requirements: [],
+          implemented: false
+        }]
+      })
+    }
+    
+    // 데이터베이스 설계서 기반 가이드
+    const dbDoc = documents.find((doc: any) => doc.id === '4' || doc.name.includes('데이터베이스'))
+    if (dbDoc) {
+      guideSections.push({
+        id: 'database',
+        title: '데이터베이스 가이드',
+        icon: Database,
+        progress: 0,
+        expanded: true,
+        subsections: [{
+          id: 'db-1',
+          title: '데이터베이스 설계',
+          content: dbDoc.content || '',
+          codeTemplate: generateCodeTemplateFromDatabase(dbDoc.content),
+          testScenario: '',
+          requirements: [],
+          implemented: false
+        }]
+      })
+    }
+    
+    // 테스트 계획서 기반 가이드
+    const testDoc = documents.find((doc: any) => doc.id === '5' || doc.name.includes('테스트'))
+    if (testDoc) {
+      guideSections.push({
+        id: 'test',
+        title: '테스트 가이드',
+        icon: TestTube,
+        progress: 0,
+        expanded: true,
+        subsections: [{
+          id: 'test-1',
+          title: '테스트 계획서',
+          content: testDoc.content || '',
+          codeTemplate: '',
+          testScenario: testDoc.content || '',
+          requirements: [],
+          implemented: false
+        }]
+      })
+    }
+    
+    return guideSections.length > 0 ? guideSections : mockGuideData
+  }
+
+  // 아이콘 이름 추출 함수
+  const getIconName = (icon: any): string => {
+    if (typeof icon === 'string') return icon
+    if (icon === FileText) return 'FileText'
+    if (icon === Settings) return 'Settings'
+    if (icon === Code) return 'Code'
+    if (icon === Database) return 'Database'
+    if (icon === TestTube) return 'TestTube'
+    if (icon === Shield) return 'Shield'
+    if (icon === LogIn) return 'LogIn'
+    if (icon === LayoutDashboard) return 'LayoutDashboard'
+    if (icon === Monitor) return 'Monitor'
+    if (icon === BookOpen) return 'BookOpen'
+    if (icon === Zap) return 'Zap'
+    if (icon === TestTube2) return 'TestTube2'
+    if (icon === Bug) return 'Bug'
+    if (icon === CheckSquare) return 'CheckSquare'
+    return 'FileText'
+  }
+
+  // 아이콘 매핑 함수
+  const getIconByName = (iconName: string) => {
+    const iconMap: { [key: string]: any } = {
+      'FileText': FileText,
+      'Settings': Settings,
+      'Code': Code,
+      'Database': Database,
+      'TestTube': TestTube,
+      'Shield': Shield,
+      'LogIn': LogIn,
+      'LayoutDashboard': LayoutDashboard,
+      'Monitor': Monitor,
+      'BookOpen': BookOpen,
+      'Zap': Zap,
+      'TestTube2': TestTube2,
+      'Bug': Bug,
+      'CheckSquare': CheckSquare
+    }
+    return iconMap[iconName] || FileText
+  }
+
+  // 가이드 데이터를 저장 가능한 형태로 변환 (아이콘을 문자열로 변환)
+  const prepareGuideDataForStorage = (data: GuideSection[]) => {
+    return data.map(section => ({
+      ...section,
+      icon: getIconName(section.icon)
+    }))
+  }
+
+  // localStorage에서 저장된 개발가이드 데이터 복원
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('developmentGuideData')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.guideData && data.guideData.length > 0) {
+          // 아이콘 복원 (localStorage에서 복원된 아이콘은 문자열이므로 다시 매핑)
+          const restoredGuideData = data.guideData.map((section: any) => {
+            // 아이콘이 문자열인 경우 컴포넌트로 매핑
+            let icon = section.icon
+            if (typeof icon === 'string') {
+              icon = getIconByName(icon)
+            } else if (typeof icon === 'object' && icon !== null) {
+              // 기존에 객체로 저장된 경우를 위한 fallback
+              const iconName = icon.displayName || icon.name || 'FileText'
+              icon = getIconByName(iconName)
+            }
+            return { ...section, icon }
+          })
+          
+          setGuideData(restoredGuideData)
+          if (data.selectedSectionId) {
+            const section = restoredGuideData.find((s: GuideSection) => 
+              s.subsections.some((sub: GuideSubsection) => sub.id === data.selectedSectionId)
+            )
+            if (section) {
+              const subsection = section.subsections.find((sub: GuideSubsection) => 
+                sub.id === data.selectedSectionId
+              )
+              if (subsection) {
+                setSelectedSection(subsection)
+              }
+            }
+          }
+          if (data.activeTab) {
+            setActiveTab(data.activeTab)
+          }
+          console.log('개발가이드 데이터가 복원되었습니다.')
+        }
+      }
+    } catch (error) {
+      console.error('개발가이드 데이터 복원 오류:', error)
+    }
+  }, [])
+
+  // 문서 편집 데이터로 개발가이드 자동 업데이트
+  useEffect(() => {
+    try {
+      const documentStored = localStorage.getItem('documentEditorData')
+      if (documentStored) {
+        const documentData = JSON.parse(documentStored)
+        
+        // 자동 업데이트 플래그 확인
+        if (documentData.shouldAutoUpdateGuide && documentData.documents) {
+          // 문서 편집 데이터를 기반으로 개발가이드 생성
+          const updatedGuideData = generateGuideFromDocuments(documentData.documents)
+          
+          if (updatedGuideData.length > 0) {
+            setGuideData(updatedGuideData)
+            
+            // 첫 번째 섹션의 첫 번째 서브섹션 선택
+            if (updatedGuideData[0]?.subsections[0]) {
+              const firstSubsection = updatedGuideData[0].subsections[0]
+              setSelectedSection(firstSubsection)
+              
+              // 다음 렌더링 사이클에서 반영되도록 처리
+              setTimeout(() => {
+                setSelectedSection(firstSubsection)
+              }, 0)
+            }
+            
+            // 플래그 제거
+            documentData.shouldAutoUpdateGuide = false
+            localStorage.setItem('documentEditorData', JSON.stringify(documentData))
+            
+            // 업데이트된 가이드 데이터 저장 (아이콘을 문자열로 변환)
+            const guideDataToSave = {
+              guideData: prepareGuideDataForStorage(updatedGuideData),
+              selectedSectionId: updatedGuideData[0]?.subsections[0]?.id || null,
+              activeTab: 'guide',
+              savedAt: new Date().toISOString()
+            }
+            localStorage.setItem('developmentGuideData', JSON.stringify(guideDataToSave))
+            
+            console.log('개발가이드가 문서 편집 데이터로 자동 업데이트되었습니다.')
+          }
+        }
+      }
+    } catch (error) {
+      console.error('개발가이드 자동 업데이트 오류:', error)
+    }
+  }, [])
+
+  // 개발가이드 데이터가 변경될 때마다 localStorage에 자동 저장
+  useEffect(() => {
+    if (guideData.length > 0) {
+      try {
+        const guideDataToSave = {
+          guideData: prepareGuideDataForStorage(guideData),
+          selectedSectionId: selectedSection?.id || null,
+          activeTab,
+          savedAt: new Date().toISOString()
+        }
+        localStorage.setItem('developmentGuideData', JSON.stringify(guideDataToSave))
+      } catch (error) {
+        console.error('개발가이드 데이터 자동 저장 오류:', error)
+      }
+    }
+  }, [guideData, selectedSection?.id, activeTab])
+
   const toggleSection = (sectionId: string) => {
     setGuideData(prev => prev.map(section => 
       section.id === sectionId 
@@ -1498,6 +2564,20 @@ export function DevelopmentGuide({ onSave, onNextStep }: DevelopmentGuideProps) 
         <div className="flex items-center space-x-2">
           <Button 
             onClick={() => {
+              // 개발가이드 데이터를 localStorage에 저장
+              try {
+                const guideDataToSave = {
+                  guideData: prepareGuideDataForStorage(guideData),
+                  selectedSectionId: selectedSection?.id || null,
+                  activeTab,
+                  savedAt: new Date().toISOString()
+                }
+                localStorage.setItem('developmentGuideData', JSON.stringify(guideDataToSave))
+                console.log('개발가이드 데이터가 localStorage에 저장되었습니다.')
+              } catch (error) {
+                console.error('개발가이드 데이터 저장 오류:', error)
+              }
+              
               onSave?.()
               onNextStep?.()
             }}
@@ -1588,56 +2668,58 @@ export function DevelopmentGuide({ onSave, onNextStep }: DevelopmentGuideProps) 
                     <TabsTrigger value="test">테스트</TabsTrigger>
                   </TabsList>
                   
-                  <TabsContent value="guide" className="mt-4">
-                    <div className="prose max-w-none">
-                      <pre className="whitespace-pre-wrap text-sm">
-                        {selectedSection.content}
-                      </pre>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="code" className="mt-4">
-                    {selectedSection.codeTemplate ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-medium">코드 템플릿</h3>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => copyToClipboard(selectedSection.codeTemplate || '')}
-                          >
-                            <Copy className="w-4 h-4 mr-2" />
-                            복사
-                          </Button>
-                        </div>
-                        <div className="relative">
-                          <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
-                            <code>{selectedSection.codeTemplate}</code>
-                          </pre>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <Code className="w-8 h-8 mx-auto mb-2" />
-                        <p>코드 템플릿이 준비되지 않았습니다</p>
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="test" className="mt-4">
-                    {selectedSection.testScenario ? (
+                  <div className="w-full aspect-square overflow-hidden mt-4">
+                    <TabsContent value="guide" className="h-full overflow-y-auto">
                       <div className="prose max-w-none">
                         <pre className="whitespace-pre-wrap text-sm">
-                          {selectedSection.testScenario}
+                          {selectedSection.content}
                         </pre>
                       </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <TestTube className="w-8 h-8 mx-auto mb-2" />
-                        <p>테스트 시나리오가 준비되지 않았습니다</p>
-                      </div>
-                    )}
-                  </TabsContent>
+                    </TabsContent>
+                    
+                    <TabsContent value="code" className="h-full overflow-y-auto">
+                      {selectedSection.codeTemplate ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-medium">코드 템플릿</h3>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => copyToClipboard(selectedSection.codeTemplate || '')}
+                            >
+                              <Copy className="w-4 h-4 mr-2" />
+                              복사
+                            </Button>
+                          </div>
+                          <div className="relative">
+                            <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+                              <code>{selectedSection.codeTemplate}</code>
+                            </pre>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <Code className="w-8 h-8 mx-auto mb-2" />
+                          <p>코드 템플릿이 준비되지 않았습니다</p>
+                        </div>
+                      )}
+                    </TabsContent>
+                    
+                    <TabsContent value="test" className="h-full overflow-y-auto">
+                      {selectedSection.testScenario ? (
+                        <div className="prose max-w-none">
+                          <pre className="whitespace-pre-wrap text-sm">
+                            {selectedSection.testScenario}
+                          </pre>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <TestTube className="w-8 h-8 mx-auto mb-2" />
+                          <p>테스트 시나리오가 준비되지 않았습니다</p>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </div>
                 </Tabs>
               ) : (
                 <div className="text-center py-12 text-gray-500">

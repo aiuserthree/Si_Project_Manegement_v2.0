@@ -329,13 +329,80 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('')
   const [copied, setCopied] = useState(false)
 
-  // 기능정의서 및 메뉴 구조 데이터 로드 (실제로는 전역 상태나 API에서 가져와야 함)
+  // WBS 데이터 및 메뉴 구조 데이터 로드
   useEffect(() => {
-    // TODO: 실제 데이터 소스에서 가져오기
-    // const savedFunctions = getFunctionsFromGlobalState()
-    // const savedMenuData = getMenuDataFromGlobalState()
-    // setFunctions(savedFunctions)
-    // setMenuData(savedMenuData)
+    try {
+      // WBS 데이터에서 functions 가져오기 (shouldAutoUpdateFigma 플래그 확인)
+      const wbsStored = localStorage.getItem('wbsData')
+      if (wbsStored) {
+        const wbsData = JSON.parse(wbsStored)
+        
+        // 자동 업데이트 플래그가 있으면 WBS 데이터로 업데이트
+        if (wbsData.shouldAutoUpdateFigma && wbsData.functions && wbsData.functions.length > 0) {
+          // Date 문자열을 Date 객체로 변환
+          const restoredFunctions = wbsData.functions.map((func: any) => ({
+            ...func,
+            tasks: func.tasks.map((task: any) => ({
+              ...task,
+              startDate: task.startDate ? new Date(task.startDate) : undefined,
+              endDate: task.endDate ? new Date(task.endDate) : undefined,
+              reviewCompleteDate: task.reviewCompleteDate ? new Date(task.reviewCompleteDate) : undefined
+            }))
+          }))
+          setFunctions(restoredFunctions)
+          
+          // 플래그 제거
+          wbsData.shouldAutoUpdateFigma = false
+          localStorage.setItem('wbsData', JSON.stringify(wbsData))
+          
+          console.log('WBS 데이터에서 기능 목록이 자동으로 업데이트되었습니다.')
+        } else if (wbsData.functions && wbsData.functions.length > 0) {
+          // 플래그가 없어도 저장된 데이터가 있으면 복원 (초기 로드 시)
+          const restoredFunctions = wbsData.functions.map((func: any) => ({
+            ...func,
+            tasks: func.tasks.map((task: any) => ({
+              ...task,
+              startDate: task.startDate ? new Date(task.startDate) : undefined,
+              endDate: task.endDate ? new Date(task.endDate) : undefined,
+              reviewCompleteDate: task.reviewCompleteDate ? new Date(task.reviewCompleteDate) : undefined
+            }))
+          }))
+          // 현재 functions가 mockFunctions와 같거나 비어있을 때만 복원
+          if (functions.length === 0 || (functions.length === mockFunctions.length && functions[0]?.id === mockFunctions[0]?.id)) {
+            setFunctions(restoredFunctions)
+            console.log('WBS 데이터에서 기능 목록이 복원되었습니다.')
+          }
+        }
+      }
+      
+      // 메뉴 구조 데이터 가져오기
+      const menuStored = localStorage.getItem('menuStructureData')
+      if (menuStored) {
+        const menuData = JSON.parse(menuStored)
+        if (menuData.menuData && menuData.menuData.length > 0) {
+          setMenuData(menuData.menuData)
+          console.log('메뉴 구조 데이터가 복원되었습니다.')
+        }
+      }
+      
+      // 저장된 프롬프트 복원
+      const promptStored = localStorage.getItem('figmaMakePromptState')
+      if (promptStored) {
+        const promptData = JSON.parse(promptStored)
+        if (promptData.generatedPrompt) {
+          setGeneratedPrompt(promptData.generatedPrompt)
+        }
+        if (promptData.selectedFunction) {
+          setSelectedFunction(promptData.selectedFunction)
+        }
+        if (promptData.promptType) {
+          setPromptType(promptData.promptType)
+        }
+        console.log('피그마 메이크 프롬프트 상태가 복원되었습니다.')
+      }
+    } catch (error) {
+      console.error('데이터 복원 오류:', error)
+    }
   }, [])
 
   // 피그마 메이크 프롬프트 생성
@@ -675,12 +742,14 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <Textarea
-              value={generatedPrompt}
-              onChange={(e) => setGeneratedPrompt(e.target.value)}
-              className="min-h-[500px] font-mono text-sm"
-              placeholder="프롬프트가 여기에 표시됩니다..."
-            />
+            <div className="w-full aspect-square overflow-hidden">
+              <Textarea
+                value={generatedPrompt}
+                onChange={(e) => setGeneratedPrompt(e.target.value)}
+                className="w-full h-full font-mono text-sm resize-none overflow-y-auto"
+                placeholder="프롬프트가 여기에 표시됩니다..."
+              />
+            </div>
           </CardContent>
         </Card>
       )}
@@ -692,26 +761,26 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
           <p className="text-sm text-gray-600 mt-1">프롬프트 생성에 사용될 기능 목록</p>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-3 w-full aspect-square max-h-full overflow-y-auto">
             {functions.map(func => (
-              <div key={func.id} className="border rounded-lg p-4 hover:bg-gray-50">
+              <div key={func.id} className="border rounded-lg p-3 hover:bg-gray-50">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="outline">{func.functionId}</Badge>
-                      <span className="font-semibold">{func.name}</span>
-                      <Badge>{func.priority}</Badge>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className="text-xs">{func.functionId}</Badge>
+                      <span className="font-semibold text-sm">{func.name}</span>
+                      <Badge className="text-xs">{func.priority}</Badge>
                       {func.division && (
-                        <Badge variant="secondary">{func.division}</Badge>
+                        <Badge variant="secondary" className="text-xs">{func.division}</Badge>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">{func.description}</p>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <p className="text-xs text-gray-600 mb-1 line-clamp-2">{func.description}</p>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
                       {func.depth1 && <span>{func.depth1}</span>}
                       {func.depth2 && <span>› {func.depth2}</span>}
                       {func.depth3 && <span>› {func.depth3}</span>}
                     </div>
-                    <div className="flex gap-2 mt-2 flex-wrap">
+                    <div className="flex gap-1 flex-wrap">
                       {func.requiredRoles.map(role => (
                         <Badge key={role} variant="secondary" className="text-xs">
                           {role}
@@ -730,6 +799,23 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
       <div className="flex justify-end mt-6">
         <Button
           onClick={() => {
+            // 피그마 메이크 프롬프트 상태를 localStorage에 저장
+            try {
+              const promptState = {
+                generatedPrompt,
+                selectedFunction,
+                promptType,
+                functions,
+                menuData,
+                savedAt: new Date().toISOString(),
+                shouldAutoUpdateDocument: true // 문서 편집 페이지에 자동 반영 플래그
+              }
+              localStorage.setItem('figmaMakePromptState', JSON.stringify(promptState))
+              console.log('피그마 메이크 프롬프트 상태가 localStorage에 저장되었습니다.')
+            } catch (error) {
+              console.error('피그마 메이크 프롬프트 상태 저장 오류:', error)
+            }
+            
             onSave?.()
             onNextStep?.()
           }}

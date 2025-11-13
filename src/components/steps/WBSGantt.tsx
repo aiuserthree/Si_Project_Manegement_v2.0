@@ -202,44 +202,51 @@ export function WBSGantt({ onSave, onNextStep }: WBSGanttProps) {
   const [projectStartDate, setProjectStartDate] = useState<Date>(new Date())
   const [autoAssignEnabled, setAutoAssignEnabled] = useState(true)
 
-  // 로컬 스토리지에서 투입된 인력 가져오기 (실제로는 전역 상태나 API에서 가져와야 함)
+  // localStorage에서 인력관리 데이터 복원
   useEffect(() => {
-    // Mock 데이터 - 실제로는 ResourceManagement에서 가져와야 함
-    const mockAssignedResources: Resource[] = [
-      {
-        id: '1',
-        name: '김기획',
-        role: '기획자',
-        grade: '고급',
-        isAssigned: true,
-        assignedProjectId: 'current-project'
-      },
-      {
-        id: '2',
-        name: '이디자인',
-        role: '디자이너',
-        grade: '중급',
-        isAssigned: true,
-        assignedProjectId: 'current-project'
-      },
-      {
-        id: '3',
-        name: '박퍼블',
-        role: '퍼블리셔',
-        grade: '중급',
-        isAssigned: true,
-        assignedProjectId: 'current-project'
-      },
-      {
-        id: '4',
-        name: '최개발',
-        role: '개발자',
-        grade: '고급',
-        isAssigned: true,
-        assignedProjectId: 'current-project'
+    try {
+      const stored = localStorage.getItem('resourceManagementData')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.assignedResources && data.assignedResources.length > 0) {
+          setAssignedResources(data.assignedResources)
+        }
       }
-    ]
-    setAssignedResources(mockAssignedResources)
+    } catch (error) {
+      console.error('인력관리 데이터 복원 오류:', error)
+    }
+  }, [])
+
+  // localStorage에서 저장된 WBS 데이터 복원
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('wbsData')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.functions && data.functions.length > 0) {
+          // Date 문자열을 Date 객체로 변환
+          const restoredFunctions = data.functions.map((func: any) => ({
+            ...func,
+            tasks: func.tasks.map((task: any) => ({
+              ...task,
+              startDate: task.startDate ? new Date(task.startDate) : undefined,
+              endDate: task.endDate ? new Date(task.endDate) : undefined,
+              reviewCompleteDate: task.reviewCompleteDate ? new Date(task.reviewCompleteDate) : undefined
+            }))
+          }))
+          setFunctions(restoredFunctions)
+          if (data.projectStartDate) {
+            setProjectStartDate(new Date(data.projectStartDate))
+          }
+          if (data.assignedResources && data.assignedResources.length > 0) {
+            setAssignedResources(data.assignedResources)
+          }
+          console.log('WBS 데이터가 복원되었습니다.')
+        }
+      }
+    } catch (error) {
+      console.error('WBS 데이터 복원 오류:', error)
+    }
   }, [])
 
   // 기능별 WBS 자동 생성
@@ -351,15 +358,197 @@ export function WBSGantt({ onSave, onNextStep }: WBSGanttProps) {
     })
   }
 
+  // 기능정의서 데이터를 Function 형식으로 변환
+  const convertFunctionalSpecToFunctions = (): Function[] => {
+    try {
+      const stored = localStorage.getItem('functionalSpecificationData')
+      if (!stored) {
+        return []
+      }
+      
+      const data = JSON.parse(stored)
+      if (!data.screens || data.screens.length === 0) {
+        return []
+      }
+      
+      const convertedFunctions: Function[] = []
+      let functionCounter = 1
+      
+      data.screens.forEach((screen: any) => {
+        // 각 화면의 기능들을 Function으로 변환
+        screen.functions.forEach((func: any) => {
+          const functionId = `FN-${String(functionCounter).padStart(3, '0')}`
+          
+          // 기능명에서 필요한 역할 추론
+          const requiredRoles = getRequiredRolesForFunction(func.name)
+          
+          // 우선순위 추론
+          let priority: 'Critical' | 'High' | 'Medium' | 'Low' = 'Medium'
+          if (func.category === '권한' || func.category === '보안') {
+            priority = 'Critical'
+          } else if (func.category === '입력' || func.category === '생성') {
+            priority = 'High'
+          } else if (func.category === '조회') {
+            priority = 'Low'
+          }
+          
+          const functionItem: Function = {
+            id: `${screen.id}-${func.number}`,
+            functionId: functionId,
+            name: func.name,
+            description: func.description,
+            priority: priority,
+            requiredRoles: requiredRoles,
+            tasks: [],
+            division: screen.division === 'BO' ? 'BO' : 'FO',
+            depth1: screen.depth1 || '',
+            depth2: screen.depth2 || '',
+            depth3: screen.depth3 || screen.name,
+            page: screen.name,
+            platform: 'Web',
+            spec: '1차',
+            note: func.note || ''
+          }
+          
+          convertedFunctions.push(functionItem)
+          functionCounter++
+        })
+      })
+      
+      return convertedFunctions
+    } catch (error) {
+      console.error('기능정의서 데이터 변환 오류:', error)
+      return []
+    }
+  }
+
   // 자동 배치 실행
   const handleAutoAssign = () => {
-    if (assignedResources.length === 0) {
-      alert('먼저 인력 관리에서 프로젝트에 인력을 투입해주세요.')
+    // localStorage에서 최신 인력관리 데이터 읽기
+    let currentAssignedResources = assignedResources
+    try {
+      const resourceStored = localStorage.getItem('resourceManagementData')
+      if (resourceStored) {
+        const resourceData = JSON.parse(resourceStored)
+        if (resourceData.assignedResources && resourceData.assignedResources.length > 0) {
+          currentAssignedResources = resourceData.assignedResources
+          setAssignedResources(currentAssignedResources)
+        } else {
+          alert('먼저 인력 관리에서 프로젝트에 인력을 투입해주세요.')
+          return
+        }
+      } else {
+        if (assignedResources.length === 0) {
+          alert('먼저 인력 관리에서 프로젝트에 인력을 투입해주세요.')
+          return
+        }
+      }
+    } catch (error) {
+      console.error('인력관리 데이터 읽기 오류:', error)
+      if (assignedResources.length === 0) {
+        alert('인력 관리 데이터를 불러올 수 없습니다.')
+        return
+      }
+    }
+    
+    // localStorage에서 최신 기능정의서 데이터 읽기
+    const functionalSpecFunctions = convertFunctionalSpecToFunctions()
+    
+    if (functionalSpecFunctions.length === 0) {
+      alert('기능정의서 데이터가 없습니다. 먼저 기능정의서를 생성하고 저장해주세요.')
       return
     }
     
-    generateWBS()
-    alert('WBS가 자동으로 생성되었습니다.')
+    // WBS 생성 (직접 계산하여 상태 업데이트)
+    const updatedFunctions = functionalSpecFunctions.map(func => {
+      const tasks: WBSTask[] = []
+      
+      // 각 기능에 필요한 역할별 작업 생성
+      func.requiredRoles.forEach((role, index) => {
+        // 해당 역할의 인력 찾기 (최신 데이터 사용)
+        const availableResource = currentAssignedResources.find(r => r.role === role)
+        
+        if (availableResource) {
+          const task: WBSTask = {
+            id: `${func.id}-${role}-${index}`,
+            functionId: func.id,
+            role: role,
+            taskName: `${func.name} - ${role} 작업`,
+            assignedResourceId: availableResource.id,
+            assignedResourceName: availableResource.name,
+            resourceGrade: availableResource.grade,
+            estimatedDays: gradeBasedDuration[availableResource.grade][role],
+            status: 'not-started',
+            dependencies: index > 0 ? [`${func.id}-${func.requiredRoles[index - 1]}-${index - 1}`] : [],
+            progress: 0,
+            reviewStatus: '대기'
+          }
+          tasks.push(task)
+        } else {
+          // 인력이 없으면 기본 기간으로 생성
+          const task: WBSTask = {
+            id: `${func.id}-${role}-${index}`,
+            functionId: func.id,
+            role: role,
+            taskName: `${func.name} - ${role} 작업`,
+            estimatedDays: gradeBasedDuration['중급'][role],
+            status: 'not-started',
+            dependencies: index > 0 ? [`${func.id}-${func.requiredRoles[index - 1]}-${index - 1}`] : [],
+            progress: 0,
+            reviewStatus: '대기'
+          }
+          tasks.push(task)
+        }
+      })
+      
+      // 검수 작업 자동 생성
+      const lastTask = tasks.length > 0 ? tasks[tasks.length - 1] : null
+      const reviewTask: WBSTask = {
+        id: `${func.id}-검수-${tasks.length}`,
+        functionId: func.id,
+        role: '개발자' as ResourceRole,
+        taskName: `${func.name} - 검수 작업`,
+        estimatedDays: 3,
+        status: 'not-started',
+        dependencies: lastTask ? [lastTask.id] : [],
+        progress: 0,
+        reviewStatus: '대기'
+      }
+      tasks.push(reviewTask)
+      
+      return { ...func, tasks }
+    })
+    
+    // 날짜 계산
+    const functionsWithDates = calculateDates(updatedFunctions)
+    
+    // 상태 업데이트
+    setFunctions(functionsWithDates)
+    
+    // 자동배치 후 즉시 localStorage에 저장
+    try {
+      const wbsData = {
+        functions: functionsWithDates.map(func => ({
+          ...func,
+          tasks: func.tasks.map(task => ({
+            ...task,
+            // Date 객체를 ISO 문자열로 변환
+            startDate: task.startDate ? task.startDate.toISOString() : undefined,
+            endDate: task.endDate ? task.endDate.toISOString() : undefined,
+            reviewCompleteDate: task.reviewCompleteDate ? task.reviewCompleteDate.toISOString() : undefined
+          }))
+        })),
+        projectStartDate: projectStartDate.toISOString(),
+        assignedResources: currentAssignedResources,
+        savedAt: new Date().toISOString()
+      }
+      localStorage.setItem('wbsData', JSON.stringify(wbsData))
+      console.log('자동배치 후 WBS 데이터가 localStorage에 저장되었습니다.')
+    } catch (error) {
+      console.error('자동배치 후 WBS 데이터 저장 오류:', error)
+    }
+    
+    alert(`${functionalSpecFunctions.length}개의 기능이 WBS에 자동으로 배치되었습니다.`)
   }
 
   // 수동 인력 배정
@@ -1086,6 +1275,35 @@ export function WBSGantt({ onSave, onNextStep }: WBSGanttProps) {
       <div className="flex justify-end mt-6">
         <Button
           onClick={() => {
+            // WBS 데이터를 localStorage에 저장 (현재 상태를 확실히 저장)
+            try {
+              // 현재 functions 상태를 직접 사용하여 저장
+              const currentFunctions = functions.length > 0 ? functions : []
+              
+              const wbsData = {
+                functions: currentFunctions.map(func => ({
+                  ...func,
+                  tasks: func.tasks.map(task => ({
+                    ...task,
+                    // Date 객체를 ISO 문자열로 변환
+                    startDate: task.startDate ? task.startDate.toISOString() : undefined,
+                    endDate: task.endDate ? task.endDate.toISOString() : undefined,
+                    reviewCompleteDate: task.reviewCompleteDate ? task.reviewCompleteDate.toISOString() : undefined
+                  }))
+                })),
+                projectStartDate: projectStartDate.toISOString(),
+                assignedResources: assignedResources.length > 0 ? assignedResources : [],
+                savedAt: new Date().toISOString(),
+                shouldAutoUpdateFigma: true // 피그마 메이크 프롬프트 페이지에 자동 반영 플래그
+              }
+              localStorage.setItem('wbsData', JSON.stringify(wbsData))
+              console.log(`WBS 데이터가 localStorage에 저장되었습니다. (${currentFunctions.length}개 기능)`)
+            } catch (error) {
+              console.error('WBS 데이터 저장 오류:', error)
+              alert('WBS 데이터 저장 중 오류가 발생했습니다.')
+              return
+            }
+            
             onSave?.()
             onNextStep?.()
           }}

@@ -172,10 +172,239 @@ const setDivisionForNodes = (nodes: MenuNode[]): MenuNode[] => {
   })
 }
 
+interface Requirement {
+  id: string
+  reqId: string
+  serviceType: string
+  name: string
+  description: string
+  priority: 'High' | 'Medium' | 'Low'
+  status: string
+  difficulty: 'Easy' | 'Medium' | 'Hard' | 'Expert'
+  estimatedHours: number
+  aiAnalyzed: boolean
+}
+
 export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
   const [menuData, setMenuData] = useState<MenuNode[]>(setDivisionForNodes(mockMenuData))
   const [selectedNode, setSelectedNode] = useState<MenuNode | null>(null)
   const [activeTab, setActiveTab] = useState<'all' | 'FO' | 'BO'>('all')
+
+  // 메뉴를 FO 먼저, BO 나중에 정렬하는 함수
+  const sortMenuByDivision = (nodes: MenuNode[]): MenuNode[] => {
+    const sorted = [...nodes].sort((a, b) => {
+      const aDivision = a.division || inferDivision(a)
+      const bDivision = b.division || inferDivision(b)
+      
+      // FO가 먼저 오도록 정렬
+      if (aDivision === 'FO' && bDivision === 'BO') return -1
+      if (aDivision === 'BO' && bDivision === 'FO') return 1
+      
+      // 같은 division 내에서는 이름으로 정렬
+      return a.name.localeCompare(b.name)
+    })
+    
+    // 자식 노드도 재귀적으로 정렬
+    return sorted.map(node => {
+      if (node.children && node.children.length > 0) {
+        return { ...node, children: sortMenuByDivision(node.children) }
+      }
+      return node
+    })
+  }
+
+  // 요구사항을 메뉴 구조로 변환하는 함수
+  const convertRequirementsToMenu = (requirements: Requirement[]): MenuNode[] => {
+    const menuMap = new Map<string, MenuNode>()
+    let nodeIdCounter = 1000
+
+    // 서비스 타입별로 그룹화
+    const groupedByService = requirements.reduce((acc, req) => {
+      const serviceType = req.serviceType || '기타'
+      if (!acc[serviceType]) {
+        acc[serviceType] = []
+      }
+      acc[serviceType].push(req)
+      return acc
+    }, {} as Record<string, Requirement[]>)
+
+    const menuNodes: MenuNode[] = []
+    const foNodes: MenuNode[] = []
+    const boNodes: MenuNode[] = []
+    const otherNodes: MenuNode[] = []
+
+    // 각 서비스 타입별로 메뉴 생성
+    Object.entries(groupedByService).forEach(([serviceType, reqs]) => {
+      // 서비스 타입을 Depth1로 설정
+      const depth1Name = serviceType === 'F/O' ? '프론트엔드' : 
+                        serviceType === 'B/O' ? '백오피스' :
+                        serviceType === 'API/RFC' ? 'API' :
+                        serviceType === 'AI' ? 'AI 기능' : '기타'
+
+      const serviceNodeId = `service-${serviceType}-${nodeIdCounter++}`
+      const serviceNode: MenuNode = {
+        id: serviceNodeId,
+        name: depth1Name,
+        depth1: depth1Name,
+        depth2: '',
+        depth3: '',
+        depth4: '',
+        depth5: '',
+        screenName: `/${depth1Name.toLowerCase()}`,
+        accessLevel: serviceType === 'B/O' ? 'login' : 'all',
+        hasAdmin: serviceType === 'B/O',
+        division: serviceType === 'F/O' ? 'FO' : 'BO',
+        expanded: true,
+        children: []
+      }
+
+      // 요구사항명에서 카테고리 추출 (예: "사용자 관리", "상품 관리" 등)
+      const categoryMap = new Map<string, Requirement[]>()
+      
+      reqs.forEach(req => {
+        const name = req.name
+        // "관리", "조회", "등록" 등의 키워드로 카테고리 추출
+        let category = '기타'
+        
+        if (name.includes('관리')) {
+          category = name.replace(/관리/g, '').trim() || '관리'
+        } else if (name.includes('조회') || name.includes('목록')) {
+          category = name.replace(/조회|목록/g, '').trim() || '조회'
+        } else if (name.includes('등록') || name.includes('생성')) {
+          category = name.replace(/등록|생성/g, '').trim() || '등록'
+        } else if (name.includes('설정')) {
+          category = '설정'
+        } else {
+          // 첫 2-3단어를 카테고리로 사용
+          const words = name.split(/\s+/)
+          category = words.slice(0, 2).join(' ') || '기타'
+        }
+
+        if (!categoryMap.has(category)) {
+          categoryMap.set(category, [])
+        }
+        categoryMap.get(category)!.push(req)
+      })
+
+      // 카테고리별로 Depth2 메뉴 생성
+      categoryMap.forEach((categoryReqs, category) => {
+        const categoryNodeId = `category-${category}-${nodeIdCounter++}`
+        const categoryNode: MenuNode = {
+          id: categoryNodeId,
+          name: category,
+          depth1: depth1Name,
+          depth2: category,
+          depth3: '',
+          depth4: '',
+          depth5: '',
+          screenName: `/${depth1Name.toLowerCase()}/${category.toLowerCase()}`,
+          accessLevel: serviceType === 'B/O' ? 'login' : 'all',
+          hasAdmin: serviceType === 'B/O',
+          division: serviceType === 'F/O' ? 'FO' : 'BO',
+          expanded: true,
+          children: []
+        }
+
+        // 각 요구사항을 Depth3 메뉴로 생성
+        categoryReqs.forEach((req, index) => {
+          const reqNodeId = `req-${req.reqId}-${nodeIdCounter++}`
+          const reqNode: MenuNode = {
+            id: reqNodeId,
+            name: req.name,
+            depth1: depth1Name,
+            depth2: category,
+            depth3: req.name,
+            depth4: '',
+            depth5: '',
+            screenName: `/${depth1Name.toLowerCase()}/${category.toLowerCase()}/${req.name.toLowerCase().replace(/\s+/g, '-')}`,
+            accessLevel: serviceType === 'B/O' ? 'login' : 'all',
+            hasAdmin: serviceType === 'B/O',
+            division: serviceType === 'F/O' ? 'FO' : 'BO',
+            expanded: false,
+            children: []
+          }
+          categoryNode.children!.push(reqNode)
+        })
+
+        serviceNode.children!.push(categoryNode)
+      })
+
+      // division에 따라 분류
+      if (serviceType === 'F/O' || serviceNode.division === 'FO') {
+        foNodes.push(serviceNode)
+      } else if (serviceType === 'B/O' || serviceNode.division === 'BO') {
+        boNodes.push(serviceNode)
+      } else {
+        otherNodes.push(serviceNode)
+      }
+    })
+
+    // FO 먼저, BO 나중에, 기타는 마지막에 배치
+    return [...foNodes, ...boNodes, ...otherNodes]
+  }
+
+  // localStorage에서 메뉴 구조 복원
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('menuStructureData')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.menuData && data.menuData.length > 0) {
+          // FO 먼저, BO 나중에 정렬하여 복원
+          setMenuData(sortMenuByDivision(data.menuData))
+        }
+      }
+    } catch (error) {
+      console.error('메뉴 구조 복원 오류:', error)
+    }
+  }, [])
+
+  // menuData 상태 변경 시 localStorage에 저장 (정렬된 상태로 저장)
+  useEffect(() => {
+    if (menuData.length > 0) {
+      const sortedData = sortMenuByDivision(menuData)
+      const dataToSave = {
+        menuData: sortedData,
+        savedAt: new Date().toISOString()
+      }
+      localStorage.setItem('menuStructureData', JSON.stringify(dataToSave))
+    }
+  }, [menuData])
+
+  // localStorage에서 요구사항 읽기 및 메뉴 구조 자동 생성
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('requirementsData')
+      if (stored) {
+        const data = JSON.parse(stored)
+        
+        // 자동 업데이트 플래그 확인
+        if (data.shouldAutoUpdateMenu && data.requirements && data.requirements.length > 0) {
+          // 플래그 제거
+          data.shouldAutoUpdateMenu = false
+          localStorage.setItem('requirementsData', JSON.stringify(data))
+          
+          // 요구사항을 메뉴 구조로 변환
+          const newMenuData = convertRequirementsToMenu(data.requirements)
+          
+          if (newMenuData.length > 0) {
+            // 기존 메뉴와 병합 (중복 제거)
+            setMenuData(prev => {
+              const existingIds = new Set(prev.map(m => m.id))
+              const uniqueNew = newMenuData.filter(m => !existingIds.has(m.id))
+              const merged = [...prev, ...uniqueNew]
+              // FO 먼저, BO 나중에 정렬
+              return sortMenuByDivision(merged)
+            })
+            
+            console.log(`${newMenuData.length}개의 메뉴 그룹이 자동으로 생성되었습니다.`)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('메뉴 구조 자동 생성 오류:', error)
+    }
+  }, [])
 
   const toggleNode = (nodeId: string) => {
     const updateNodes = (nodes: MenuNode[]): MenuNode[] => {
@@ -480,7 +709,8 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
     return filterNodes(nodes)
   }
 
-  const filteredMenuData = filterMenuByDivision(menuData, activeTab)
+  // 메뉴 데이터를 필터링하고 정렬 (FO 먼저, BO 나중에)
+  const filteredMenuData = sortMenuByDivision(filterMenuByDivision(menuData, activeTab))
 
   const updateSelectedNode = (field: keyof MenuNode, value: any) => {
     if (selectedNode) {

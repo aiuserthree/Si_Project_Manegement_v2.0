@@ -445,7 +445,45 @@ export function FunctionalSpecification({ onSave, onNextStep }: FunctionalSpecif
     // 메뉴 데이터 로드
     const data = getMenuData()
     setMenuData(data)
+    
+    // localStorage에서 기능정의서 생성 내용 복원
+    try {
+      const stored = localStorage.getItem('functionalSpecificationState')
+      if (stored) {
+        const savedState = JSON.parse(stored)
+        if (savedState.generatedSpec) {
+          setGeneratedSpec(savedState.generatedSpec)
+          setIsGenerated(savedState.isGenerated || false)
+        }
+        if (savedState.projectName) {
+          setProjectName(savedState.projectName)
+        }
+        if (savedState.author) {
+          setAuthor(savedState.author)
+        }
+        if (savedState.activeTab) {
+          setActiveTab(savedState.activeTab)
+        }
+      }
+    } catch (error) {
+      console.error('기능정의서 상태 복원 오류:', error)
+    }
   }, [])
+
+  // 기능정의서 생성 내용이 변경될 때마다 localStorage에 저장
+  useEffect(() => {
+    if (generatedSpec || isGenerated) {
+      const stateToSave = {
+        generatedSpec,
+        isGenerated,
+        projectName,
+        author,
+        activeTab,
+        savedAt: new Date().toISOString()
+      }
+      localStorage.setItem('functionalSpecificationState', JSON.stringify(stateToSave))
+    }
+  }, [generatedSpec, isGenerated, projectName, author, activeTab])
 
   const handleGenerate = () => {
     setIsGenerating(true)
@@ -458,6 +496,44 @@ export function FunctionalSpecification({ onSave, onNextStep }: FunctionalSpecif
       setIsGenerating(false)
       setIsGenerated(true)
     }, 500)
+  }
+
+  // 기능정의서 데이터 저장 함수
+  const saveFunctionalSpecification = () => {
+    const screens = flattenMenuNodes(menuData)
+    const functionSpecData = {
+      projectName,
+      author,
+      menuData,
+      generatedSpec, // 생성된 기능정의서 내용도 저장
+      isGenerated,
+      screens: screens.map((screen, index) => {
+        const screenType = inferScreenType(screen)
+        const screenId = generateScreenId(screen, index)
+        const functions = inferFunctions(screen, screenType)
+        const division = inferDivision(screen)
+        return {
+          id: screen.id,
+          screenId,
+          name: screen.name,
+          depth1: screen.depth1,
+          depth2: screen.depth2,
+          depth3: screen.depth3,
+          screenName: screen.screenName,
+          division,
+          functions: functions.map((func, funcIndex) => ({
+            number: funcIndex + 1,
+            category: func.category,
+            name: func.name,
+            description: func.description,
+            note: func.note
+          }))
+        }
+      }),
+      savedAt: new Date().toISOString()
+    }
+    localStorage.setItem('functionalSpecificationData', JSON.stringify(functionSpecData))
+    console.log('기능정의서 데이터가 localStorage에 저장되었습니다.')
   }
 
   const handleDownload = () => {
@@ -741,6 +817,17 @@ export function FunctionalSpecification({ onSave, onNextStep }: FunctionalSpecif
       <div className="flex justify-end gap-4">
         <Button 
           onClick={() => {
+            // 기능정의서 생성이 안 되어 있으면 먼저 생성
+            if (!isGenerated || !generatedSpec) {
+              handleGenerate()
+              // 생성 후 저장하도록 약간의 지연
+              setTimeout(() => {
+                saveFunctionalSpecification()
+              }, 600)
+            } else {
+              saveFunctionalSpecification()
+            }
+            
             onSave?.()
             onNextStep?.()
           }}

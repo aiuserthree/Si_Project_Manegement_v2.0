@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
@@ -314,6 +314,363 @@ export function DocumentEditor({ onSave, onNextStep }: DocumentEditorProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<string>('all')
 
+  // localStorage에서 저장된 문서 데이터 복원
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('documentEditorData')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.documents && data.documents.length > 0) {
+          setDocuments(data.documents)
+          if (data.selectedDocId) {
+            const doc = data.documents.find((d: Document) => d.id === data.selectedDocId)
+            if (doc) {
+              setSelectedDoc(doc)
+              setContent(doc.content)
+            }
+          }
+          console.log('문서 편집 데이터가 복원되었습니다.')
+        }
+      }
+    } catch (error) {
+      console.error('문서 편집 데이터 복원 오류:', error)
+    }
+  }, [])
+
+  // documents가 업데이트되면 현재 선택된 문서의 content도 업데이트 (자동 업데이트 후 반영)
+  useEffect(() => {
+    if (documents.length > 0 && selectedDoc.id) {
+      const currentDoc = documents.find(doc => doc.id === selectedDoc.id)
+      if (currentDoc && currentDoc.content !== selectedDoc.content) {
+        // documents 배열의 문서가 업데이트되었지만 selectedDoc와 content가 아직 반영되지 않은 경우
+        setContent(currentDoc.content)
+        setSelectedDoc(currentDoc)
+      }
+    }
+  }, [documents, selectedDoc.id])
+
+  // 문서 내용이 변경될 때마다 localStorage에 자동 저장
+  useEffect(() => {
+    if (documents.length > 0 && content !== selectedDoc.content) {
+      try {
+        // 현재 선택된 문서의 내용도 업데이트
+        const updatedDocs = documents.map(doc => 
+          doc.id === selectedDoc.id ? { ...doc, content, lastModified: new Date().toLocaleString('ko-KR') } : doc
+        )
+        
+        const documentData = {
+          documents: updatedDocs,
+          selectedDocId: selectedDoc.id,
+          savedAt: new Date().toISOString()
+        }
+        localStorage.setItem('documentEditorData', JSON.stringify(documentData))
+        
+        // documents 상태도 업데이트 (무한 루프 방지)
+        setDocuments(prevDocs => {
+          const hasChanges = prevDocs.some((doc, idx) => 
+            doc.id === updatedDocs[idx]?.id && doc.content !== updatedDocs[idx]?.content
+          )
+          return hasChanges ? updatedDocs : prevDocs
+        })
+        
+        // selectedDoc도 업데이트
+        const updatedDoc = updatedDocs.find(doc => doc.id === selectedDoc.id)
+        if (updatedDoc && updatedDoc.content !== selectedDoc.content) {
+          setSelectedDoc(updatedDoc)
+        }
+      } catch (error) {
+        console.error('문서 편집 데이터 자동 저장 오류:', error)
+      }
+    }
+  }, [content])
+
+  // 이전 프로세스 데이터로 문서 자동 업데이트
+  useEffect(() => {
+    try {
+      const promptStored = localStorage.getItem('figmaMakePromptState')
+      if (promptStored) {
+        const promptData = JSON.parse(promptStored)
+        
+        // 자동 업데이트 플래그 확인
+        if (promptData.shouldAutoUpdateDocument) {
+          setDocuments(prevDocuments => {
+            const updatedDocs = [...prevDocuments]
+            const currentSelectedDocId = selectedDoc.id
+            
+            // 1. 요구사항 명세서 업데이트 (id: '1')
+            try {
+              const requirementsStored = localStorage.getItem('requirementsData')
+              if (requirementsStored) {
+                const requirementsData = JSON.parse(requirementsStored)
+                if (requirementsData.requirements && requirementsData.requirements.length > 0) {
+                  let requirementContent = `# 요구사항 명세서\n\n`
+                  requirementContent += `## 1. 프로젝트 개요\n`
+                  requirementContent += `- **작성일**: ${new Date().toLocaleDateString('ko-KR')}\n`
+                  requirementContent += `- **총 요구사항 수**: ${requirementsData.requirements.length}개\n\n`
+                  
+                  requirementContent += `## 2. 기능 요구사항\n\n`
+                  
+                  // 서비스 타입별로 그룹화
+                  const byServiceType: Record<string, any[]> = {}
+                  requirementsData.requirements.forEach((req: any) => {
+                    const type = req.serviceType || '기타'
+                    if (!byServiceType[type]) byServiceType[type] = []
+                    byServiceType[type].push(req)
+                  })
+                  
+                  Object.keys(byServiceType).forEach(serviceType => {
+                    requirementContent += `### 2.${Object.keys(byServiceType).indexOf(serviceType) + 1} ${serviceType} 요구사항\n\n`
+                    byServiceType[serviceType].forEach((req: any, idx: number) => {
+                      requirementContent += `#### ${req.reqId || `REQ-${idx + 1}`}: ${req.name}\n`
+                      requirementContent += `- **우선순위**: ${req.priority || 'Medium'}\n`
+                      requirementContent += `- **상세설명**: ${req.description || ''}\n`
+                      requirementContent += `- **예상 작업량**: ${req.estimatedHours || 0}시간\n\n`
+                    })
+                  })
+                  
+                  const reqDocIndex = updatedDocs.findIndex(doc => doc.id === '1')
+                  if (reqDocIndex >= 0) {
+                    updatedDocs[reqDocIndex] = {
+                      ...updatedDocs[reqDocIndex],
+                      content: requirementContent,
+                      lastModified: new Date().toLocaleString('ko-KR')
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('요구사항 명세서 업데이트 오류:', error)
+            }
+            
+            // 2. 시스템 설계서 업데이트 (id: '2')
+            try {
+              const functionalSpecStored = localStorage.getItem('functionalSpecificationData')
+              const menuStored = localStorage.getItem('menuStructureData')
+              
+              if (functionalSpecStored || menuStored) {
+                let designContent = `# 시스템 설계서\n\n`
+                designContent += `## 1. 아키텍처 개요\n`
+                designContent += `- **프로젝트명**: ${functionalSpecStored ? JSON.parse(functionalSpecStored).projectName || 'SI Project Manager' : 'SI Project Manager'}\n`
+                designContent += `- **작성일**: ${new Date().toLocaleDateString('ko-KR')}\n\n`
+                
+                if (menuStored) {
+                  const menuData = JSON.parse(menuStored)
+                  if (menuData.menuData && menuData.menuData.length > 0) {
+                    designContent += `## 2. 메뉴 구조\n\n`
+                    
+                    const flattenMenu = (nodes: any[], depth: number = 1): string => {
+                      let result = ''
+                      nodes.forEach(node => {
+                        const prefix = '  '.repeat(depth - 1) + '- '
+                        result += `${prefix}${node.name} (${node.screenName || '/'})\n`
+                        if (node.children && node.children.length > 0) {
+                          result += flattenMenu(node.children, depth + 1)
+                        }
+                      })
+                      return result
+                    }
+                    
+                    designContent += flattenMenu(menuData.menuData)
+                    designContent += `\n`
+                  }
+                }
+                
+                if (functionalSpecStored) {
+                  const funcSpecData = JSON.parse(functionalSpecStored)
+                  if (funcSpecData.screens && funcSpecData.screens.length > 0) {
+                    designContent += `## 3. 화면별 기능 설계\n\n`
+                    funcSpecData.screens.forEach((screen: any, idx: number) => {
+                      designContent += `### 3.${idx + 1} ${screen.name}\n`
+                      designContent += `- **화면 ID**: ${screen.screenId || ''}\n`
+                      designContent += `- **구분**: ${screen.division || 'FO'}\n`
+                      designContent += `- **경로**: ${screen.depth1 || ''} > ${screen.depth2 || ''} > ${screen.depth3 || ''}\n`
+                      if (screen.functions && screen.functions.length > 0) {
+                        designContent += `- **주요 기능**:\n`
+                        screen.functions.forEach((func: any) => {
+                          designContent += `  - ${func.name}: ${func.description}\n`
+                        })
+                      }
+                      designContent += `\n`
+                    })
+                  }
+                }
+                
+                const designDocIndex = updatedDocs.findIndex(doc => doc.id === '2')
+                if (designDocIndex >= 0) {
+                  updatedDocs[designDocIndex] = {
+                    ...updatedDocs[designDocIndex],
+                    content: designContent,
+                    lastModified: new Date().toLocaleString('ko-KR')
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('시스템 설계서 업데이트 오류:', error)
+            }
+            
+            // 3. API 명세서 업데이트 (id: '3')
+            try {
+              const requirementsStored = localStorage.getItem('requirementsData')
+              if (requirementsStored) {
+                const requirementsData = JSON.parse(requirementsStored)
+                const apiRequirements = requirementsData.requirements?.filter((req: any) => 
+                  req.serviceType === 'API' || req.serviceType === 'API/RFC'
+                ) || []
+                
+                if (apiRequirements.length > 0) {
+                  let apiContent = `# API 명세서\n\n`
+                  apiContent += `## 1. API 개요\n`
+                  apiContent += `- **Base URL**: /api/v1\n`
+                  apiContent += `- **인증**: JWT Token\n`
+                  apiContent += `- **응답 형식**: JSON\n\n`
+                  
+                  apiContent += `## 2. API 목록\n\n`
+                  apiRequirements.forEach((req: any, idx: number) => {
+                    apiContent += `### 2.${idx + 1} ${req.name}\n`
+                    apiContent += `**요구사항 ID**: ${req.reqId || `REQ-${idx + 1}`}\n\n`
+                    apiContent += `**설명**: ${req.description || ''}\n\n`
+                    apiContent += `**우선순위**: ${req.priority || 'Medium'}\n\n`
+                    apiContent += `---\n\n`
+                  })
+                  
+                  const apiDocIndex = updatedDocs.findIndex(doc => doc.id === '3')
+                  if (apiDocIndex >= 0) {
+                    updatedDocs[apiDocIndex] = {
+                      ...updatedDocs[apiDocIndex],
+                      content: apiContent,
+                      lastModified: new Date().toLocaleString('ko-KR')
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('API 명세서 업데이트 오류:', error)
+            }
+            
+            // 4. 데이터베이스 설계서 업데이트 (id: '4')
+            try {
+              const functionalSpecStored = localStorage.getItem('functionalSpecificationData')
+              const requirementsStored = localStorage.getItem('requirementsData')
+              
+              if (functionalSpecStored || requirementsStored) {
+                let dbContent = `# 데이터베이스 설계서\n\n`
+                dbContent += `## 1. 데이터베이스 개요\n`
+                dbContent += `- **DBMS**: PostgreSQL\n`
+                dbContent += `- **작성일**: ${new Date().toLocaleDateString('ko-KR')}\n\n`
+                
+                dbContent += `## 2. 주요 엔티티\n\n`
+                dbContent += `### 2.1 요구사항 기반 엔티티\n\n`
+                
+                if (requirementsStored) {
+                  const requirementsData = JSON.parse(requirementsStored)
+                  if (requirementsData.requirements && requirementsData.requirements.length > 0) {
+                    const entities = new Set<string>()
+                    requirementsData.requirements.forEach((req: any) => {
+                      // 요구사항명에서 엔티티 추출 (간단한 추론)
+                      const name = req.name.toLowerCase()
+                      if (name.includes('사용자') || name.includes('회원')) entities.add('users')
+                      if (name.includes('프로젝트')) entities.add('projects')
+                      if (name.includes('작업') || name.includes('태스크')) entities.add('tasks')
+                      if (name.includes('파일') || name.includes('문서')) entities.add('files')
+                    })
+                    
+                    Array.from(entities).forEach((entity, idx) => {
+                      dbContent += `#### ${entity} 테이블\n`
+                      dbContent += `| 컬럼명 | 타입 | 제약조건 | 설명 |\n`
+                      dbContent += `|--------|------|----------|------|\n`
+                      dbContent += `| id | SERIAL | PRIMARY KEY | ${entity} ID |\n`
+                      dbContent += `| created_at | TIMESTAMP | DEFAULT NOW() | 생성일시 |\n`
+                      dbContent += `| updated_at | TIMESTAMP | DEFAULT NOW() | 수정일시 |\n\n`
+                    })
+                  }
+                }
+                
+                const dbDocIndex = updatedDocs.findIndex(doc => doc.id === '4')
+                if (dbDocIndex >= 0) {
+                  updatedDocs[dbDocIndex] = {
+                    ...updatedDocs[dbDocIndex],
+                    content: dbContent,
+                    lastModified: new Date().toLocaleString('ko-KR')
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('데이터베이스 설계서 업데이트 오류:', error)
+            }
+            
+            // 5. 테스트 계획서 업데이트 (id: '5')
+            try {
+              const wbsStored = localStorage.getItem('wbsData')
+              if (wbsStored) {
+                const wbsData = JSON.parse(wbsStored)
+                if (wbsData.functions && wbsData.functions.length > 0) {
+                  let testContent = `# 테스트 계획서\n\n`
+                  testContent += `## 1. 테스트 개요\n`
+                  testContent += `- **테스트 목적**: 프로젝트 품질 보증\n`
+                  testContent += `- **작성일**: ${new Date().toLocaleDateString('ko-KR')}\n`
+                  testContent += `- **총 기능 수**: ${wbsData.functions.length}개\n\n`
+                  
+                  testContent += `## 2. 기능별 테스트 계획\n\n`
+                  wbsData.functions.forEach((func: any, idx: number) => {
+                    testContent += `### 2.${idx + 1} ${func.name} (${func.functionId || `FN-${idx + 1}`})\n`
+                    testContent += `- **설명**: ${func.description || ''}\n`
+                    testContent += `- **우선순위**: ${func.priority || 'Medium'}\n`
+                    if (func.tasks && func.tasks.length > 0) {
+                      testContent += `- **작업 수**: ${func.tasks.length}개\n`
+                    }
+                    testContent += `\n`
+                  })
+                  
+                  testContent += `## 3. 테스트 유형\n\n`
+                  testContent += `### 3.1 단위 테스트\n`
+                  testContent += `- **대상**: 개별 함수, 메서드\n`
+                  testContent += `- **도구**: Jest, React Testing Library\n\n`
+                  testContent += `### 3.2 통합 테스트\n`
+                  testContent += `- **대상**: 모듈 간 연동\n`
+                  testContent += `- **도구**: Supertest\n\n`
+                  testContent += `### 3.3 시스템 테스트\n`
+                  testContent += `- **대상**: 전체 시스템\n`
+                  testContent += `- **도구**: Cypress\n\n`
+                  
+                  const testDocIndex = updatedDocs.findIndex(doc => doc.id === '5')
+                  if (testDocIndex >= 0) {
+                    updatedDocs[testDocIndex] = {
+                      ...updatedDocs[testDocIndex],
+                      content: testContent,
+                      lastModified: new Date().toLocaleString('ko-KR')
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('테스트 계획서 업데이트 오류:', error)
+            }
+            
+            // 플래그 제거
+            promptData.shouldAutoUpdateDocument = false
+            localStorage.setItem('figmaMakePromptState', JSON.stringify(promptData))
+            
+            console.log('모든 문서가 이전 프로세스 데이터로 자동 업데이트되었습니다.')
+            
+            // 현재 선택된 문서가 업데이트되었다면 content와 selectedDoc도 즉시 업데이트
+            const updatedDoc = updatedDocs.find(doc => doc.id === currentSelectedDocId)
+            if (updatedDoc) {
+              // setState는 비동기이므로 즉시 반영을 위해 setTimeout 사용
+              setTimeout(() => {
+                setContent(updatedDoc.content)
+                setSelectedDoc(updatedDoc)
+              }, 0)
+            }
+            
+            return updatedDocs
+          })
+        }
+      }
+    } catch (error) {
+      console.error('문서 자동 업데이트 오류:', error)
+    }
+  }, [])
+
   const updateDocument = (docId: string, newContent: string) => {
     const updatedDocs = documents.map(doc => 
       doc.id === docId 
@@ -404,6 +761,20 @@ export function DocumentEditor({ onSave, onNextStep }: DocumentEditorProps) {
         <div className="flex items-center space-x-2">
           <Button 
             onClick={() => {
+              // 문서 편집 데이터를 localStorage에 저장
+              try {
+                const documentData = {
+                  documents,
+                  selectedDocId: selectedDoc.id,
+                  savedAt: new Date().toISOString(),
+                  shouldAutoUpdateGuide: true // 개발가이드 페이지에 자동 반영 플래그
+                }
+                localStorage.setItem('documentEditorData', JSON.stringify(documentData))
+                console.log('문서 편집 데이터가 localStorage에 저장되었습니다.')
+              } catch (error) {
+                console.error('문서 편집 데이터 저장 오류:', error)
+              }
+              
               onSave?.()
               onNextStep?.()
             }}
@@ -538,18 +909,22 @@ export function DocumentEditor({ onSave, onNextStep }: DocumentEditorProps) {
                       <Image className="w-4 h-4" />
                     </Button>
                   </div>
-                  <Textarea
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    className="min-h-96 font-mono text-sm"
-                    placeholder="마크다운 형식으로 문서를 작성하세요..."
-                  />
+                  <div className="w-full aspect-square overflow-hidden">
+                    <Textarea
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      className="w-full h-full font-mono text-sm resize-none overflow-y-auto"
+                      placeholder="마크다운 형식으로 문서를 작성하세요..."
+                    />
+                  </div>
                 </div>
               ) : (
-                <div className="prose max-w-none">
-                  <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 p-4 rounded-lg">
-                    {content}
-                  </pre>
+                <div className="w-full aspect-square overflow-hidden">
+                  <div className="w-full h-full overflow-y-auto prose max-w-none">
+                    <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 p-4 rounded-lg">
+                      {content}
+                    </pre>
+                  </div>
                 </div>
               )}
             </CardContent>

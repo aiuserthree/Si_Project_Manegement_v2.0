@@ -56,6 +56,8 @@
     },
     server: {
       port: 3000,
+      host: true,
       open: true,
+      strictPort: false, // 포트가 사용 중이면 다른 포트 자동 선택
     },
   });

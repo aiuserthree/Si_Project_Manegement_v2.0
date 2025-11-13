@@ -31,8 +31,8 @@ const mainMenuItems = [
 ]
 
 const workflowSteps = [
-  { id: 1, label: '파일 업로드', icon: Upload, description: '요구사항 문서 업로드' },
-  { id: 2, label: '질의서', icon: Target, description: 'AI 기반 질의서 생성' },
+  { id: 1, label: '질의서', icon: Target, description: 'AI 기반 질의서 생성' },
+  { id: 2, label: '파일 업로드', icon: Upload, description: '요구사항 문서 업로드' },
   { id: 3, label: '요구사항 정의', icon: FileEdit, description: '요구사항 도출 및 정의' },
   { id: 4, label: '메뉴 구조', icon: Layout, description: '시스템 메뉴 구조 설계' },
   { id: 5, label: '기능정의서', icon: FileCheck, description: '메뉴 구조 기반 기능정의서 자동생성' },
