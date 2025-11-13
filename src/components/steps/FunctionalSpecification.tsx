@@ -592,7 +592,7 @@ export function FunctionalSpecification({ onSave, onNextStep }: FunctionalSpecif
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="projectName">프로젝트명</Label>
               <Input
                 id="projectName"
@@ -601,7 +601,7 @@ export function FunctionalSpecification({ onSave, onNextStep }: FunctionalSpecif
                 placeholder="프로젝트명을 입력하세요"
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="author">작성자</Label>
               <Input
                 id="author"

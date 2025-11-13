@@ -590,7 +590,7 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="function-select">기능 선택</Label>
               <Select value={selectedFunction} onValueChange={setSelectedFunction}>
                 <SelectTrigger id="function-select">
@@ -606,7 +606,7 @@ export function FigmaMakePrompt({ onSave, onNextStep }: FigmaMakePromptProps) {
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="prompt-type">프롬프트 유형</Label>
               <Select value={promptType} onValueChange={(value: any) => setPromptType(value)}>
                 <SelectTrigger id="prompt-type">
