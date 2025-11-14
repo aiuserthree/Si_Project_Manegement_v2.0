@@ -150,7 +150,7 @@ interface RequirementsDefinitionProps {
 }
 
 export function RequirementsDefinition({ onSave, onNextStep }: RequirementsDefinitionProps) {
-  const [requirements, setRequirements] = useState<Requirement[]>(mockRequirements)
+  const [requirements, setRequirements] = useState<Requirement[]>([])
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [serviceFilter, setServiceFilter] = useState('전체')
@@ -713,23 +713,95 @@ export function RequirementsDefinition({ onSave, onNextStep }: RequirementsDefin
       return
     }
 
-    // 기존 요구사항과 병합 (중복 제거)
-    setRequirements(prev => {
-      const existingReqIds = new Set(prev.map(r => r.reqId))
-      const uniqueNew = newRequirements.filter(r => !existingReqIds.has(r.reqId))
-      return [...prev, ...uniqueNew]
-    })
+    // 파일 분석 결과로 완전히 교체 (기존 요구사항 무시)
+    setRequirements(newRequirements)
+    
+    // localStorage에 저장 (파일 분석에서 생성된 것임을 표시)
+    const dataToSave = {
+      requirements: newRequirements,
+      savedAt: new Date().toISOString(),
+      fromFileAnalysis: true
+    }
+    localStorage.setItem('requirementsData', JSON.stringify(dataToSave))
 
-    alert(`${newRequirements.length}개의 요구사항이 자동으로 생성되었습니다.`)
+    alert(`${newRequirements.length}개의 요구사항이 파일 분석 결과에서 생성되었습니다.`)
   }
 
-  // localStorage에서 요구사항 복원
+  // localStorage에서 요구사항 복원 및 파일 분석 결과 자동 업데이트
   useEffect(() => {
+    // 1. 파일 분석 결과 확인 (우선순위 1)
+    const analysisResults = loadAnalysisResults()
+    setHasAnalysisData(analysisResults.length > 0)
+    
+    // 2. 파일 업로드에서 "저장 및 다음단계" 클릭 시 자동 반영
+    try {
+      const stored = localStorage.getItem('fileAnalysisResults')
+      if (stored) {
+        const data = JSON.parse(stored)
+        
+        // 파일 분석 결과가 있고 shouldAutoUpdate 플래그가 있으면 파일 분석 결과만 사용
+        if (data.shouldAutoUpdate && analysisResults.length > 0) {
+          // 자동 업데이트 플래그 제거
+          data.shouldAutoUpdate = false
+          localStorage.setItem('fileAnalysisResults', JSON.stringify(data))
+          
+          // 파일 분석 결과에서 요구사항 생성 (기존 요구사항 무시)
+          const newRequirements = convertAnalysisToRequirements(analysisResults)
+          
+          if (newRequirements.length > 0) {
+            // 파일 분석 결과만 사용
+            setRequirements(newRequirements)
+            
+            // localStorage에 저장 (기존 요구사항 덮어쓰기)
+            const dataToSave = {
+              requirements: newRequirements,
+              savedAt: new Date().toISOString(),
+              fromFileAnalysis: true // 파일 분석에서 생성된 것임을 표시
+            }
+            localStorage.setItem('requirementsData', JSON.stringify(dataToSave))
+            
+            console.log(`✅ ${newRequirements.length}개의 요구사항이 파일 분석 결과에서 자동으로 생성되었습니다.`)
+          }
+          return // 파일 분석 결과를 사용했으므로 여기서 종료
+        }
+        
+        // 파일 분석 결과가 있지만 shouldAutoUpdate 플래그가 없는 경우
+        // (이전에 이미 업데이트된 경우) - 파일 분석 결과 기반 요구사항 사용
+        if (analysisResults.length > 0) {
+          const newRequirements = convertAnalysisToRequirements(analysisResults)
+          if (newRequirements.length > 0) {
+            // 기존 localStorage의 요구사항 확인
+            try {
+              const reqStored = localStorage.getItem('requirementsData')
+              if (reqStored) {
+                const reqData = JSON.parse(reqStored)
+                // 파일 분석에서 생성된 요구사항이면 그대로 사용
+                if (reqData.fromFileAnalysis && reqData.requirements) {
+                  setRequirements(reqData.requirements)
+                  return
+                }
+              }
+            } catch (error) {
+              // 무시하고 계속 진행
+            }
+            
+            // 파일 분석 결과 사용
+            setRequirements(newRequirements)
+            return
+          }
+        }
+      }
+    } catch (error) {
+      console.error('파일 분석 결과 처리 오류:', error)
+    }
+
+    // 3. 파일 분석 결과가 없을 때만 기존 요구사항 복원 (우선순위 2)
     try {
       const stored = localStorage.getItem('requirementsData')
       if (stored) {
         const data = JSON.parse(stored)
-        if (data.requirements && data.requirements.length > 0) {
+        // 파일 분석에서 생성된 요구사항이 아닌 경우에만 복원
+        if (data.requirements && data.requirements.length > 0 && !data.fromFileAnalysis) {
           setRequirements(data.requirements)
         }
       }
@@ -741,48 +813,27 @@ export function RequirementsDefinition({ onSave, onNextStep }: RequirementsDefin
   // requirements 상태 변경 시 localStorage에 저장
   useEffect(() => {
     if (requirements.length > 0) {
+      // 기존 데이터에서 fromFileAnalysis 플래그 확인
+      let fromFileAnalysis = false
+      try {
+        const stored = localStorage.getItem('requirementsData')
+        if (stored) {
+          const data = JSON.parse(stored)
+          fromFileAnalysis = data.fromFileAnalysis || false
+        }
+      } catch (error) {
+        // 무시
+      }
+      
       const dataToSave = {
         requirements,
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
+        fromFileAnalysis: fromFileAnalysis,
+        shouldAutoUpdateMenu: true // 메뉴 구조 자동 업데이트 플래그
       }
       localStorage.setItem('requirementsData', JSON.stringify(dataToSave))
     }
   }, [requirements])
-
-  // 컴포넌트 마운트 시 분석 데이터 확인 및 자동 업데이트
-  useEffect(() => {
-    const analysisResults = loadAnalysisResults()
-    setHasAnalysisData(analysisResults.length > 0)
-    
-    // 파일 업로드에서 "저장 및 다음단계" 클릭 시 자동 반영
-    try {
-      const stored = localStorage.getItem('fileAnalysisResults')
-      if (stored) {
-        const data = JSON.parse(stored)
-        if (data.shouldAutoUpdate && analysisResults.length > 0) {
-          // 자동 업데이트 플래그 제거
-          data.shouldAutoUpdate = false
-          localStorage.setItem('fileAnalysisResults', JSON.stringify(data))
-          
-          // 자동으로 요구사항 생성
-          const newRequirements = convertAnalysisToRequirements(analysisResults)
-          
-          if (newRequirements.length > 0) {
-            // 기존 요구사항과 병합 (중복 제거)
-            setRequirements(prev => {
-              const existingReqIds = new Set(prev.map(r => r.reqId))
-              const uniqueNew = newRequirements.filter(r => !existingReqIds.has(r.reqId))
-              return [...prev, ...uniqueNew]
-            })
-            
-            console.log(`${newRequirements.length}개의 요구사항이 자동으로 생성되었습니다.`)
-          }
-        }
-      }
-    } catch (error) {
-      console.error('자동 업데이트 오류:', error)
-    }
-  }, [])
 
   return (
     <div className="space-y-6">

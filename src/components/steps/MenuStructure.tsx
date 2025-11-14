@@ -186,7 +186,7 @@ interface Requirement {
 }
 
 export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
-  const [menuData, setMenuData] = useState<MenuNode[]>(setDivisionForNodes(mockMenuData))
+  const [menuData, setMenuData] = useState<MenuNode[]>([])
   const [selectedNode, setSelectedNode] = useState<MenuNode | null>(null)
   const [activeTab, setActiveTab] = useState<'all' | 'FO' | 'BO'>('all')
 
@@ -343,13 +343,54 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
     return [...foNodes, ...boNodes, ...otherNodes]
   }
 
-  // localStorage에서 메뉴 구조 복원
+  // localStorage에서 요구사항 읽기 및 메뉴 구조 자동 생성 (우선순위 1)
   useEffect(() => {
+    try {
+      const stored = localStorage.getItem('requirementsData')
+      if (stored) {
+        const data = JSON.parse(stored)
+        
+        // 요구사항이 있는 경우 메뉴 구조 생성
+        if (data.requirements && data.requirements.length > 0) {
+          // 자동 업데이트 플래그 확인
+          if (data.shouldAutoUpdateMenu) {
+            // 플래그 제거
+            data.shouldAutoUpdateMenu = false
+            localStorage.setItem('requirementsData', JSON.stringify(data))
+          }
+          
+          // 요구사항을 메뉴 구조로 변환 (기존 메뉴 무시)
+          const newMenuData = convertRequirementsToMenu(data.requirements)
+          
+          if (newMenuData.length > 0) {
+            // 요구사항 기반 메뉴로 완전히 교체
+            const sortedMenuData = sortMenuByDivision(newMenuData)
+            setMenuData(sortedMenuData)
+            
+            // localStorage에 저장
+            const menuDataToSave = {
+              menuData: sortedMenuData,
+              savedAt: new Date().toISOString(),
+              fromRequirements: true // 요구사항에서 생성된 것임을 표시
+            }
+            localStorage.setItem('menuStructureData', JSON.stringify(menuDataToSave))
+            
+            console.log(`✅ ${newMenuData.length}개의 메뉴 그룹이 요구사항에서 자동으로 생성되었습니다.`)
+            return // 요구사항 기반 메뉴를 사용했으므로 여기서 종료
+          }
+        }
+      }
+    } catch (error) {
+      console.error('메뉴 구조 자동 생성 오류:', error)
+    }
+
+    // 요구사항이 없을 때만 기존 메뉴 구조 복원 (우선순위 2)
     try {
       const stored = localStorage.getItem('menuStructureData')
       if (stored) {
         const data = JSON.parse(stored)
-        if (data.menuData && data.menuData.length > 0) {
+        // 요구사항에서 생성된 메뉴가 아닌 경우에만 복원
+        if (data.menuData && data.menuData.length > 0 && !data.fromRequirements) {
           // FO 먼저, BO 나중에 정렬하여 복원
           setMenuData(sortMenuByDivision(data.menuData))
         }
@@ -363,48 +404,26 @@ export function MenuStructure({ onSave, onNextStep }: MenuStructureProps) {
   useEffect(() => {
     if (menuData.length > 0) {
       const sortedData = sortMenuByDivision(menuData)
+      // 기존 데이터에서 fromRequirements 플래그 확인
+      let fromRequirements = false
+      try {
+        const stored = localStorage.getItem('menuStructureData')
+        if (stored) {
+          const data = JSON.parse(stored)
+          fromRequirements = data.fromRequirements || false
+        }
+      } catch (error) {
+        // 무시
+      }
+      
       const dataToSave = {
         menuData: sortedData,
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
+        fromRequirements: fromRequirements
       }
       localStorage.setItem('menuStructureData', JSON.stringify(dataToSave))
     }
   }, [menuData])
-
-  // localStorage에서 요구사항 읽기 및 메뉴 구조 자동 생성
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('requirementsData')
-      if (stored) {
-        const data = JSON.parse(stored)
-        
-        // 자동 업데이트 플래그 확인
-        if (data.shouldAutoUpdateMenu && data.requirements && data.requirements.length > 0) {
-          // 플래그 제거
-          data.shouldAutoUpdateMenu = false
-          localStorage.setItem('requirementsData', JSON.stringify(data))
-          
-          // 요구사항을 메뉴 구조로 변환
-          const newMenuData = convertRequirementsToMenu(data.requirements)
-          
-          if (newMenuData.length > 0) {
-            // 기존 메뉴와 병합 (중복 제거)
-            setMenuData(prev => {
-              const existingIds = new Set(prev.map(m => m.id))
-              const uniqueNew = newMenuData.filter(m => !existingIds.has(m.id))
-              const merged = [...prev, ...uniqueNew]
-              // FO 먼저, BO 나중에 정렬
-              return sortMenuByDivision(merged)
-            })
-            
-            console.log(`${newMenuData.length}개의 메뉴 그룹이 자동으로 생성되었습니다.`)
-          }
-        }
-      }
-    } catch (error) {
-      console.error('메뉴 구조 자동 생성 오류:', error)
-    }
-  }, [])
 
   const toggleNode = (nodeId: string) => {
     const updateNodes = (nodes: MenuNode[]): MenuNode[] => {

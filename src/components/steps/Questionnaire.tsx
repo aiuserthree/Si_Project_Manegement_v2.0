@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { Input } from '../ui/input'
@@ -9,7 +9,7 @@ import { Label } from '../ui/label'
 import { Badge } from '../ui/badge'
 import { Progress } from '../ui/progress'
 import { Button } from '../ui/button'
-import { Lightbulb, CheckCircle, Save } from 'lucide-react'
+import { Lightbulb, CheckCircle, Save, Download } from 'lucide-react'
 
 interface Question {
   id: string
@@ -259,6 +259,65 @@ interface QuestionnaireProps {
 export function Questionnaire({ onSave, onNextStep }: QuestionnaireProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [activeTab, setActiveTab] = useState('기획 부문 질의사항')
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isInitialLoadRef = useRef(true)
+
+  // localStorage에서 저장된 답변 복원
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('questionnaireAnswers')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.answers && Object.keys(data.answers).length > 0) {
+          setAnswers(data.answers)
+          console.log('질의서 답변이 복원되었습니다.')
+        }
+        if (data.activeTab) {
+          setActiveTab(data.activeTab)
+        }
+      }
+      // 복원 완료 후 플래그 설정
+      isInitialLoadRef.current = false
+    } catch (error) {
+      console.error('질의서 답변 복원 오류:', error)
+      isInitialLoadRef.current = false
+    }
+  }, [])
+
+  // 답변이 변경될 때마다 localStorage에 자동 저장 (debounce 적용)
+  useEffect(() => {
+    // 초기 로드 중이거나 답변이 없으면 저장하지 않음
+    if (isInitialLoadRef.current || Object.keys(answers).length === 0) {
+      return
+    }
+
+    // 이전 타이머 취소
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    // 500ms 후에 저장 (debounce)
+    saveTimeoutRef.current = setTimeout(() => {
+      try {
+        const dataToSave = {
+          answers,
+          activeTab,
+          savedAt: new Date().toISOString()
+        }
+        localStorage.setItem('questionnaireAnswers', JSON.stringify(dataToSave))
+        console.log('질의서 답변이 자동 저장되었습니다.')
+      } catch (error) {
+        console.error('질의서 답변 자동 저장 오류:', error)
+      }
+    }, 500)
+
+    // cleanup 함수
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [answers, activeTab])
 
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers(prev => ({
@@ -299,10 +358,149 @@ export function Questionnaire({ onSave, onNextStep }: QuestionnaireProps) {
   }
 
   const handleSaveClick = () => {
+    // localStorage에 최종 저장 (저장 및 다음단계 버튼 클릭 시)
+    try {
+      const dataToSave = {
+        answers,
+        activeTab,
+        savedAt: new Date().toISOString()
+      }
+      localStorage.setItem('questionnaireAnswers', JSON.stringify(dataToSave))
+      console.log('질의서 답변이 저장되었습니다. (저장 및 다음단계 버튼 클릭)')
+    } catch (error) {
+      console.error('질의서 답변 저장 오류:', error)
+    }
+    
     // 저장 로직 실행
     onSave?.()
     // 다음 단계로 이동
     onNextStep?.()
+  }
+
+  const handleDownload = () => {
+    // localStorage에서 최신 답변 데이터 가져오기
+    let downloadAnswers = answers
+    try {
+      const stored = localStorage.getItem('questionnaireAnswers')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.answers && Object.keys(data.answers).length > 0) {
+          downloadAnswers = data.answers
+        }
+      }
+    } catch (error) {
+      console.error('저장된 답변 로드 오류:', error)
+      // 오류 발생 시 현재 상태 사용
+    }
+
+    // 통계 정보 계산 (저장된 답변 기준)
+    const getDownloadCompletionStats = (type: string) => {
+      const typeQuestions = getQuestionsByType(type)
+      const answeredCount = typeQuestions.filter(q => downloadAnswers[q.id]?.trim()).length
+      return {
+        answered: answeredCount,
+        total: typeQuestions.length,
+        percentage: typeQuestions.length > 0 ? Math.round((answeredCount / typeQuestions.length) * 100) : 0
+      }
+    }
+
+    const requiredStats = getDownloadCompletionStats('required')
+    const optionalStats = getDownloadCompletionStats('optional')
+    const recommendedStats = getDownloadCompletionStats('recommended')
+    
+    // 질의서 전체 내용을 Markdown 형식으로 변환
+    let markdown = '# 프로젝트 질의서\n\n'
+    markdown += `**생성일**: ${new Date().toLocaleString('ko-KR')}\n\n`
+    
+    // 저장된 데이터의 저장 시간 표시
+    try {
+      const stored = localStorage.getItem('questionnaireAnswers')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.savedAt) {
+          markdown += `**마지막 저장일**: ${new Date(data.savedAt).toLocaleString('ko-KR')}\n\n`
+        }
+      }
+    } catch (error) {
+      // 무시
+    }
+    
+    markdown += '---\n\n'
+
+    // 통계 정보
+    const totalQuestions = questions.length
+    const answeredQuestions = Object.keys(downloadAnswers).filter(key => downloadAnswers[key]?.trim()).length
+    const completionRate = Math.round((answeredQuestions / totalQuestions) * 100)
+
+    markdown += '## 진행 현황\n\n'
+    markdown += `- 전체 질문: ${totalQuestions}개\n`
+    markdown += `- 답변 완료: ${answeredQuestions}개\n`
+    markdown += `- 완료율: ${completionRate}%\n\n`
+    markdown += `- 필수 항목: ${requiredStats.answered}/${requiredStats.total} (${requiredStats.percentage}%)\n`
+    markdown += `- 선택 항목: ${optionalStats.answered}/${optionalStats.total} (${optionalStats.percentage}%)\n`
+    markdown += `- 권장 항목: ${recommendedStats.answered}/${recommendedStats.total} (${recommendedStats.percentage}%)\n\n`
+    markdown += '---\n\n'
+
+    // 카테고리별 질문과 답변 (저장된 답변 사용)
+    const categories = getQuestionsByCategory()
+    categories.forEach((categoryGroup, categoryIndex) => {
+      markdown += `## ${categoryIndex + 1}. ${categoryGroup.category}\n\n`
+      
+      // 저장된 답변 기준으로 카테고리 통계 계산
+      const categoryQuestions = categoryGroup.questions
+      const categoryAnsweredCount = categoryQuestions.filter(q => downloadAnswers[q.id]?.trim()).length
+      const categoryPercentage = categoryQuestions.length > 0 
+        ? Math.round((categoryAnsweredCount / categoryQuestions.length) * 100) 
+        : 0
+      
+      markdown += `**진행률**: ${categoryAnsweredCount}/${categoryQuestions.length} (${categoryPercentage}%)\n\n`
+
+      categoryGroup.questions.forEach((question, questionIndex) => {
+        const answer = downloadAnswers[question.id] || ''
+        const answerStatus = answer.trim() ? '✅ 답변 완료' : '❌ 미답변'
+        const typeLabel = question.type === 'required' ? '필수' : question.type === 'optional' ? '선택' : '권장'
+        
+        markdown += `### ${categoryIndex + 1}.${questionIndex + 1} ${question.subCategory} [${typeLabel}] ${answerStatus}\n\n`
+        markdown += `**질문**: ${question.question}\n\n`
+        
+        if (question.aiSuggestion) {
+          markdown += `**AI 제안**: ${question.aiSuggestion}\n\n`
+        }
+        
+        if (answer.trim()) {
+          markdown += `**답변**:\n${answer}\n\n`
+        } else {
+          markdown += `**답변**: (미입력)\n\n`
+        }
+        
+        markdown += '---\n\n'
+      })
+    })
+
+    // 요약 정보 (저장된 답변 기준)
+    markdown += '## 요약\n\n'
+    markdown += '### 카테고리별 진행률\n\n'
+    categories.forEach((categoryGroup) => {
+      const categoryQuestions = categoryGroup.questions
+      const categoryAnsweredCount = categoryQuestions.filter(q => downloadAnswers[q.id]?.trim()).length
+      const categoryPercentage = categoryQuestions.length > 0 
+        ? Math.round((categoryAnsweredCount / categoryQuestions.length) * 100) 
+        : 0
+      markdown += `- **${categoryGroup.category}**: ${categoryAnsweredCount}/${categoryQuestions.length} (${categoryPercentage}%)\n`
+    })
+
+    // 파일 다운로드
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    const fileName = `프로젝트_질의서_${new Date().toISOString().split('T')[0]}.md`
+    link.setAttribute('href', url)
+    link.setAttribute('download', fileName)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
   const renderInput = (question: Question) => {
@@ -388,6 +586,14 @@ export function Questionnaire({ onSave, onNextStep }: QuestionnaireProps) {
           <h2 className="text-2xl font-bold">프로젝트 질의서</h2>
           <p className="text-gray-600 mt-1">프로젝트의 요구사항을 파악하기 위한 질문에 답변해 주세요</p>
         </div>
+        <Button 
+          variant="outline" 
+          onClick={handleDownload}
+          className="flex items-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          질의서 다운로드
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
