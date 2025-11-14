@@ -67,6 +67,7 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
     let minDate: Date | null = null
     let maxDate: Date | null = null
 
+    // 실제 작업의 날짜 범위 찾기
     functions.forEach(func => {
       func.tasks.forEach(task => {
         if (task.startDate && (!minDate || task.startDate < minDate)) {
@@ -78,11 +79,13 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
       })
     })
 
+    // 작업이 없거나 날짜가 없는 경우 기본값 설정
     if (!minDate || !maxDate) {
       minDate = new Date()
       maxDate = new Date()
-      maxDate.setMonth(maxDate.getMonth() + 3) // 기본 3개월
+      maxDate.setMonth(maxDate.getMonth() + 6) // 기본 6개월 (데이터가 없을 때만)
     }
+    // 최대 기간 제한 없이 실제 작업 기간에 맞춰 표시
 
     return { start: minDate, end: maxDate }
   }
@@ -111,7 +114,11 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
     let currentMonth = currentDate.getMonth() + 1
     let currentYear = currentDate.getFullYear()
 
-    while (currentDate <= end) {
+    // 종료일을 약간 여유있게 설정 (마지막 작업이 끝나는 주까지 포함)
+    const endDateWithBuffer = new Date(end)
+    endDateWithBuffer.setDate(endDateWithBuffer.getDate() + 7) // 1주일 여유
+
+    while (currentDate <= endDateWithBuffer) {
       const year = currentDate.getFullYear()
       const month = currentDate.getMonth() + 1
       
@@ -139,7 +146,8 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
       currentDate.setDate(currentDate.getDate() + 7)
       weekNumber++
       
-      if (columns.length > 20) break // 최대 20주
+      // 무한 루프 방지 (최대 10년치)
+      if (columns.length > 520) break // 약 10년치 (52주 * 10년)
     }
 
     return columns
@@ -200,22 +208,21 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
 
   return (
     <div className="border rounded-lg" style={{ position: 'relative' }}>
-      <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-        <table className="w-full border-collapse" style={{ fontSize: '13px' }}>
+      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+        <table className="border-collapse" style={{ fontSize: '13px', minWidth: '100%', width: `${Math.max(100, weekColumns.length * 400 + 5000)}px`, tableLayout: 'fixed' }}>
           {/* 헤더 1: 업무 구분 */}
           <thead style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'white' }}>
             <tr className="bg-gray-200">
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '80px', position: 'sticky', left: 0, zIndex: 21, backgroundColor: '#434343' }}>구분</th>
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '120px', position: 'sticky', left: '80px', zIndex: 21, backgroundColor: '#434343' }}>1depth</th>
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '120px' }}>2depth</th>
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '120px' }}>3depth</th>
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '80px' }}>페이지</th>
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '200px' }}>기능 정의</th>
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '300px' }}>세부 내용</th>
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '60px' }}>Platform</th>
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '50px' }}>Spec</th>
-            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '150px' }}>비고</th>
-            <th className="border p-2 bg-[#D9D9D9] font-semibold" style={{ minWidth: '80px' }}>업무구분</th>
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '150px', width: '150px', position: 'sticky', left: 0, zIndex: 21, backgroundColor: '#434343' }}>구분</th>
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '250px', width: '250px', position: 'sticky', left: '150px', zIndex: 21, backgroundColor: '#434343' }}>1depth</th>
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '250px', width: '250px' }}>2depth</th>
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '250px', width: '250px' }}>3depth</th>
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '180px', width: '180px' }}>페이지</th>
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '400px', width: '400px' }}>기능 정의</th>
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '600px', width: '600px' }}>세부 내용</th>
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '120px', width: '120px' }}>Platform</th>
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '100px', width: '100px' }}>Spec</th>
+            <th rowSpan={2} className="border p-3 bg-[#434343] text-white font-semibold" style={{ minWidth: '300px', width: '300px' }}>비고</th>
             <th colSpan={6} className="border p-2 bg-[#C9DAF8] text-center font-semibold">기획</th>
             <th colSpan={6} className="border p-2 bg-[#C9DAF8] text-center font-semibold">디자인</th>
             <th colSpan={6} className="border p-2 bg-[#C9DAF8] text-center font-semibold">퍼블리싱</th>
@@ -224,46 +231,45 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
             <th colSpan={weekColumns.length} className="border p-2 bg-[#F3F3F3] text-center font-semibold">일정 타임라인</th>
           </tr>
           <tr className="bg-[#C9DAF8]">
-            <th className="border p-2"></th>
             {/* 기획 */}
-            <th className="border p-2" style={{ minWidth: '100px' }}>담당자</th>
-            <th className="border p-2" style={{ minWidth: '80px' }}>진행률</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>시작일</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>완료예정일</th>
-            <th className="border p-2" style={{ minWidth: '100px' }}>검수 상태</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>검수 완료일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>담당자</th>
+            <th className="border p-2" style={{ minWidth: '200px', width: '200px' }}>진행률</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>시작일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>완료예정일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>검수 상태</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>검수 완료일</th>
             {/* 디자인 */}
-            <th className="border p-2" style={{ minWidth: '100px' }}>담당자</th>
-            <th className="border p-2" style={{ minWidth: '80px' }}>진행률</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>시작일</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>완료예정일</th>
-            <th className="border p-2" style={{ minWidth: '100px' }}>검수 상태</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>검수 완료일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>담당자</th>
+            <th className="border p-2" style={{ minWidth: '200px', width: '200px' }}>진행률</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>시작일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>완료예정일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>검수 상태</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>검수 완료일</th>
             {/* 퍼블리싱 */}
-            <th className="border p-2" style={{ minWidth: '100px' }}>담당자</th>
-            <th className="border p-2" style={{ minWidth: '80px' }}>진행률</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>시작일</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>완료예정일</th>
-            <th className="border p-2" style={{ minWidth: '100px' }}>검수 상태</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>검수 완료일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>담당자</th>
+            <th className="border p-2" style={{ minWidth: '200px', width: '200px' }}>진행률</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>시작일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>완료예정일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>검수 상태</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>검수 완료일</th>
             {/* 개발 */}
-            <th className="border p-2" style={{ minWidth: '100px' }}>담당자</th>
-            <th className="border p-2" style={{ minWidth: '80px' }}>진행률</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>시작일</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>완료예정일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>담당자</th>
+            <th className="border p-2" style={{ minWidth: '200px', width: '200px' }}>진행률</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>시작일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>완료예정일</th>
             {/* 검수 */}
-            <th className="border p-2" style={{ minWidth: '100px' }}>담당자</th>
-            <th className="border p-2" style={{ minWidth: '80px' }}>진행률</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>시작일</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>완료예정일</th>
-            <th className="border p-2" style={{ minWidth: '100px' }}>검수 상태</th>
-            <th className="border p-2" style={{ minWidth: '110px' }}>검수 완료일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>담당자</th>
+            <th className="border p-2" style={{ minWidth: '200px', width: '200px' }}>진행률</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>시작일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>완료예정일</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>검수 상태</th>
+            <th className="border p-2" style={{ minWidth: '300px', width: '300px' }}>검수 완료일</th>
             {/* 일정 타임라인 헤더 */}
             {weekColumns.map((col, idx) => {
               const monthLabel = `${col.year % 100}년 ${col.month}월`
               const weekLabel = `${col.week}w\n${col.startDate.getDate()}~${col.endDate.getDate()}`
               return (
-                <th key={idx} className="border p-2 bg-[#F3F3F3] text-center" style={{ minWidth: '300px', width: '300px' }}>
+                <th key={idx} className="border p-2 bg-[#F3F3F3] text-center" style={{ minWidth: '400px', width: '400px' }}>
                   <div className="flex flex-col items-center">
                     <span className="text-sm font-medium">{monthLabel}</span>
                     <span className="text-xs whitespace-pre-line leading-tight">{weekLabel}</span>
@@ -285,19 +291,16 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
             return (
               <tr key={func.id} className="hover:bg-gray-50" style={{ height: '220px' }}>
                 {/* 작업 분류 영역 */}
-                <td className="border p-3 bg-white hover:bg-white" style={{ verticalAlign: 'top', position: 'sticky', left: 0, zIndex: 10 }}>{func.division || ''}</td>
-                <td className="border p-3 bg-white hover:bg-white" style={{ verticalAlign: 'top', position: 'sticky', left: '80px', zIndex: 10 }}>{func.depth1 || ''}</td>
-                <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.depth2 || ''}</td>
-                <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.depth3 || ''}</td>
-                <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.page || ''}</td>
-                <td className="border p-3 font-medium" style={{ verticalAlign: 'top' }}>{func.name}</td>
-                <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.description}</td>
-                <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.platform || ''}</td>
-                <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.spec || ''}</td>
-                <td className="border p-3" style={{ verticalAlign: 'top' }}>{func.note || ''}</td>
-                
-                {/* 업무 구분 */}
-                <td className="border p-2" style={{ verticalAlign: 'top' }}></td>
+                <td className="border p-3 bg-white hover:bg-white" style={{ verticalAlign: 'top', position: 'sticky', left: 0, zIndex: 10, minWidth: '150px', width: '150px' }}>{func.division || ''}</td>
+                <td className="border p-3 bg-white hover:bg-white" style={{ verticalAlign: 'top', position: 'sticky', left: '150px', zIndex: 10, minWidth: '250px', width: '250px' }}>{func.depth1 || ''}</td>
+                <td className="border p-3" style={{ verticalAlign: 'top', minWidth: '250px', width: '250px' }}>{func.depth2 || ''}</td>
+                <td className="border p-3" style={{ verticalAlign: 'top', minWidth: '250px', width: '250px' }}>{func.depth3 || ''}</td>
+                <td className="border p-3" style={{ verticalAlign: 'top', minWidth: '180px', width: '180px' }}>{func.page || ''}</td>
+                <td className="border p-3 font-medium" style={{ verticalAlign: 'top', minWidth: '400px', width: '400px' }}>{func.name}</td>
+                <td className="border p-3" style={{ verticalAlign: 'top', minWidth: '600px', width: '600px' }}>{func.description}</td>
+                <td className="border p-3" style={{ verticalAlign: 'top', minWidth: '120px', width: '120px' }}>{func.platform || ''}</td>
+                <td className="border p-3" style={{ verticalAlign: 'top', minWidth: '100px', width: '100px' }}>{func.spec || ''}</td>
+                <td className="border p-3" style={{ verticalAlign: 'top', minWidth: '300px', width: '300px' }}>{func.note || ''}</td>
                 
                 {/* 기획 영역 */}
                 {tasksByType['기획'] ? (
@@ -622,10 +625,13 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
                 
                 {/* 일정 타임라인 (막대 그래프) */}
                 {weekColumns.map((weekCol, weekIdx) => {
-                  // 해당 주차에 포함되는 모든 작업 찾기
+                  // 해당 주차에 포함되는 모든 작업 찾기 (기획, 디자인, 퍼블, 개발, 검수 순서로 정렬)
                   const tasksInWeek: { task: WBSTask; workType: string }[] = []
+                  const workTypeOrder = ['기획', '디자인', '퍼블리싱', '개발', '검수']
                   
-                  Object.entries(tasksByType).forEach(([workType, task]) => {
+                  // 순서대로 작업 추가
+                  workTypeOrder.forEach(workType => {
+                    const task = tasksByType[workType]
                     if (task && isTaskInWeek(task, weekCol.startDate, weekCol.endDate)) {
                       tasksInWeek.push({ task, workType })
                     }
@@ -635,7 +641,7 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
                     <td
                       key={weekIdx}
                       className="border p-2 relative"
-                      style={{ minWidth: '300px', width: '300px', height: '220px', backgroundColor: '#FFFFFF', verticalAlign: 'top' }}
+                      style={{ minWidth: '400px', width: '400px', height: '220px', backgroundColor: '#FFFFFF', verticalAlign: 'top' }}
                     >
                       {tasksInWeek.length === 0 ? (
                         <div className="w-full h-full"></div>
@@ -656,7 +662,7 @@ export function WBSGanttTable({ functions, onUpdate }: WBSGanttTableProps) {
                           }
 
                           return (
-                            <div key={taskIdx}>
+                            <div key={`${workType}-${taskIdx}`}>
                               <div
                                 className="absolute rounded-md cursor-move hover:opacity-90 transition-opacity shadow-md hover:shadow-lg"
                               style={{
